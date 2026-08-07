@@ -69,10 +69,17 @@ button{font-family:inherit;border:none;cursor:pointer;pointer-events:auto;
   background:rgba(11,11,13,.72);color:var(--paper);font-weight:900;letter-spacing:.06em;
   transition:transform .06s ease,background .1s ease}
 button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
-.dbtn{width:74px;height:74px;border-radius:20px;font-size:26px;line-height:1}
 #jump{width:88px;height:88px;border-radius:50%;font-size:14px}
-#string{width:78px;height:78px;border-radius:50%;font-size:12px;color:var(--lime-hot);margin-bottom:6px}
-#string.ready{background:rgba(194,230,25,.92);color:var(--void)}
+/* Analogue-feel stick replaces the two arrow buttons (Chris 08-06). A thumb resting on one
+   fixed spot beats hunting between two 74px targets, and switching direction no longer means
+   lifting off. The knob is pointer-events:none so every touch lands on the base. */
+#stick{width:132px;height:132px;border-radius:50%;pointer-events:auto;touch-action:none;
+  background:rgba(11,11,13,.55);border:2px solid rgba(242,240,236,.14);
+  display:grid;place-items:center;position:relative}
+#stick.on{background:rgba(11,11,13,.72);border-color:rgba(194,230,25,.5)}
+#knob{width:58px;height:58px;border-radius:50%;background:rgba(242,240,236,.62);
+  pointer-events:none;transition:transform .05s linear}
+#stick.on #knob{background:var(--lime-hot)}
 
 .screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:22px;
   pointer-events:auto;background:rgba(11,11,13,.55)}
@@ -111,12 +118,8 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
   <img id="brandmark" src="assets/sprites/feather.png" alt="">
   <div id="lives"></div>
   <div id="pad">
+    <div id="stick"><div id="knob"></div></div>
     <div class="grp">
-      <button class="dbtn" id="left">◀</button>
-      <button class="dbtn" id="right">▶</button>
-    </div>
-    <div class="grp">
-      <button id="string">STRING</button>
       <button id="jump">JUMP</button>
     </div>
   </div>
@@ -134,7 +137,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
       Jump twice for a <b>double jump</b>. The <b>pull-string</b> grabs <b>cable loops</b> on its own.
     </div>
     <button class="btn" id="startBtn">CLIMB OUT</button>
-    <div class="keys">← → move · SPACE / ↑ jump · J / SHIFT let go · R respawn · M mute</div>
+    <div class="keys">← → move · SPACE / ↑ jump (×2) · R respawn · M mute</div>
     <div id="ca">CA 0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</div>
   </div>
 </div>
@@ -473,10 +476,51 @@ function hold(el,on,off){
   el.addEventListener("touchcancel",u,{passive:false});
   el.addEventListener("mousedown",d); el.addEventListener("mouseup",u); el.addEventListener("mouseleave",u);
 }
-hold(document.getElementById("left"),  ()=>K.left=true,  ()=>K.left=false);
-hold(document.getElementById("right"), ()=>K.right=true, ()=>K.right=false);
 hold(document.getElementById("jump"),  ()=>{K.jump=true;jumpEdge=true;}, ()=>K.jump=false);
-hold(document.getElementById("string"),()=>{K.string=true;stringEdge=true;}, ()=>K.string=false);
+/* No STRING button. The rope grabs itself, and JUMP already releases it with a boost
+   (`if(jumpEdge){ p.lastA=p.anchor; p.roped=false; ... }`), so the button's only real job was
+   a deliberate grab — which the auto-grab gates made redundant. Chris 08-06: "the string
+   button is not needed". The J / SHIFT key still does it on desktop. */
+
+/* ---- joystick ----
+   Tracked by touch IDENTIFIER, not by "the first touch": the stick and JUMP have to work at the
+   same time, and a thumb that slides off the base mid-run must keep steering rather than
+   silently centring. move/end listen on `window` for exactly that reason. */
+const stick=document.getElementById("stick"), knob=document.getElementById("knob");
+const STICK_R=44, STICK_DEAD=9;
+let stickId=null;
+function stickTo(cx,cy){
+  const r=stick.getBoundingClientRect();
+  let dx=cx-(r.left+r.width/2), dy=cy-(r.top+r.height/2);
+  const d=Math.hypot(dx,dy);
+  if(d>STICK_R){ dx*=STICK_R/d; dy*=STICK_R/d; }
+  knob.style.transform="translate("+dx.toFixed(1)+"px,"+dy.toFixed(1)+"px)";
+  K.left = dx < -STICK_DEAD;
+  K.right = dx >  STICK_DEAD;
+}
+function stickEnd(){
+  stickId=null; stick.classList.remove("on");
+  knob.style.transform="translate(0,0)";
+  K.left=K.right=false;
+}
+stick.addEventListener("touchstart",e=>{
+  e.preventDefault();
+  if(stickId!==null) return;
+  const t=e.changedTouches[0];
+  stickId=t.identifier; stick.classList.add("on"); stickTo(t.clientX,t.clientY);
+},{passive:false});
+addEventListener("touchmove",e=>{
+  if(stickId===null) return;
+  for(const t of e.changedTouches) if(t.identifier===stickId){ e.preventDefault(); stickTo(t.clientX,t.clientY); }
+},{passive:false});
+const stickDrop=e=>{ if(stickId===null) return;
+  for(const t of e.changedTouches) if(t.identifier===stickId) stickEnd(); };
+addEventListener("touchend",stickDrop);
+addEventListener("touchcancel",stickDrop);
+// mouse, so the stick is testable and usable on a desktop without a touchscreen
+stick.addEventListener("mousedown",e=>{ e.preventDefault(); stickId=-1; stick.classList.add("on"); stickTo(e.clientX,e.clientY); });
+addEventListener("mousemove",e=>{ if(stickId===-1) stickTo(e.clientX,e.clientY); });
+addEventListener("mouseup",()=>{ if(stickId===-1) stickEnd(); });
 
 /* ============================ COLLISION ============================ */
 function hits(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
@@ -1173,7 +1217,7 @@ function drawPlayer(){
 
 /* ============================ HUD ============================ */
 const elCoins=document.getElementById("coins"), elLives=document.getElementById("lives"),
-      elMcap=document.getElementById("mcap"), elString=document.getElementById("string");
+      elMcap=document.getElementById("mcap");
 function syncHUD(){
   elCoins.textContent=G.got;
   elLives.innerHTML="";
@@ -1183,12 +1227,6 @@ function syncHUD(){
     elLives.appendChild(d);
   }
 }
-setInterval(()=>{
-  const roped = G.mode==="play" && G.p.roped;
-  elString.classList.toggle("ready", G.mode==="play" && !roped && !!bestAnchor(G.p));
-  elString.textContent = roped ? "LET GO" : "STRING";
-}, 90);
-
 /* ⚠ Market cap is priceUsd x on-chain totalSupply — the same basis DexScreener's CHART plots.
    Do NOT use their `marketCap`/`fdv` fields: on this token the chart and the fields disagree by
    ~18% at the same instant because the fields net out the 148.8M burned tokens and the chart
