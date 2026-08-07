@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>VLAD: UNBOXED</title>
+<style>
+:root{ --lime:#C2E619; --lime-hot:#D6F32F; --void:#0B0B0D; --paper:#F2F0EC; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#14171C;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:none}
+canvas{display:block;position:absolute;inset:0}
+
+.paper{background:var(--paper);color:var(--void);padding:14px 18px;position:relative;
+  box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.hl{background:linear-gradient(transparent 52%,var(--lime-hot) 52%,var(--lime-hot) 94%,transparent 94%);padding:0 2px}
+.kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.55;font-weight:700}
+/* the feather, as an element. assets/sprites/feather.png is alpha-keyed off the supplied
+   lime square, so it drops onto any surface without a halo. */
+.fea{height:1em;width:auto;vertical-align:-.14em;opacity:.85}
+.kicker .fea{height:1.15em;margin-right:5px;vertical-align:-.22em}
+#brandmark{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);
+  right:calc(56px + 12px);height:20px;opacity:.5}
+
+#hud{position:absolute;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
+#topleft{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px}
+#coins{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1}
+#mcapwrap{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;
+  transform:translateX(-50%);text-align:center}
+#mcapwrap .paper{padding:9px 16px}
+#mcap{font-size:20px;font-weight:900;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+#mcap .dn{color:#C0392B} #mcap .up{color:#2E7D32}
+#lives{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;display:flex;gap:6px}
+.life{width:13px;height:13px;border-radius:3px;background:var(--lime-hot);box-shadow:0 0 0 2px rgba(11,11,13,.55)}
+.life.off{background:transparent;box-shadow:inset 0 0 0 2px rgba(242,240,236,.35)}
+
+#footer{position:absolute;left:0;right:0;bottom:0;z-index:9;display:flex;align-items:center;
+  justify-content:space-between;gap:10px;padding:6px 12px calc(env(safe-area-inset-bottom,0px) + 6px);
+  background:rgba(11,11,13,.72);pointer-events:auto;font-size:9.5px;font-weight:700;
+  letter-spacing:.05em}
+#footer a{color:var(--paper);text-decoration:none;opacity:.72;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+#footer a:active{opacity:1}
+#footer b{color:var(--lime-hot)}
+#buy{display:flex;align-items:center;gap:6px;min-width:0}
+#buy .ca{font-size:8px;opacity:.8;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+#buy .chip{background:var(--lime-hot);color:var(--void);padding:3px 7px;font-weight:900;
+  letter-spacing:.1em;flex:none;display:flex;align-items:center;gap:4px}
+#buy .chip .fea{height:10px;opacity:1}
+
+/* On a phone the centred market cap runs straight into the coin counter. The counter is the
+   one that can lose its label — a lime number under a lime coin economy is self-explanatory. */
+@media (max-width:620px){
+  #topleft .paper{padding:8px 11px}
+  #topleft .kicker{display:none}
+  #coins{font-size:18px}
+  #mcapwrap .paper{padding:7px 11px}
+  #mcap{font-size:16px}
+  #mcapwrap .kicker{font-size:8px;letter-spacing:.14em}
+  #footer{font-size:8.5px}
+  #buy .ca{font-size:7px}
+}
+
+#pad{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);
+  display:flex;justify-content:space-between;padding:0 14px;align-items:flex-end}
+.grp{display:flex;gap:10px;align-items:flex-end}
+button{font-family:inherit;border:none;cursor:pointer;pointer-events:auto;
+  background:rgba(11,11,13,.72);color:var(--paper);font-weight:900;letter-spacing:.06em;
+  transition:transform .06s ease,background .1s ease}
+button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
+.dbtn{width:74px;height:74px;border-radius:20px;font-size:26px;line-height:1}
+#jump{width:88px;height:88px;border-radius:50%;font-size:14px}
+#string{width:78px;height:78px;border-radius:50%;font-size:12px;color:var(--lime-hot);margin-bottom:6px}
+#string.ready{background:rgba(194,230,25,.92);color:var(--void)}
+
+.screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:22px;
+  pointer-events:auto;background:rgba(11,11,13,.55)}
+.screen.on{display:flex}
+/* The sealed figure IS the opening image, so the card never covers him: under him on a phone,
+   beside him on anything wide. frameTitle() moves the camera to match. */
+#startScreen{align-items:flex-end;background:linear-gradient(transparent 16%,rgba(11,11,13,.5) 44%)}
+@media (min-width:700px){
+  #startScreen{align-items:center;justify-content:flex-end;padding:20px 5% 20px 20px;
+    background:linear-gradient(90deg,transparent 34%,rgba(11,11,13,.5) 62%)}
+}
+.card{width:100%;max-width:350px}
+.card .body{font-size:13px;line-height:1.45;margin-top:10px;opacity:.85}
+.btn{display:block;width:100%;margin-top:16px;padding:15px;background:var(--void);color:var(--lime-hot);
+  font-size:14px;font-weight:900;letter-spacing:.16em;text-align:center}
+.keys{font-size:9.5px;opacity:.42;margin-top:9px;font-weight:700;letter-spacing:.05em;line-height:1.5}
+#ca{font-size:8.5px;word-break:break-all;opacity:.4;margin-top:10px;font-weight:600}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="topleft">
+    <div class="paper">
+      <div class="kicker">$VLAD collected</div>
+      <div id="coins">0</div>
+    </div>
+  </div>
+  <div id="mcapwrap">
+    <div class="paper">
+      <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">$VLAD market cap</div>
+      <div id="mcap">loading…</div>
+    </div>
+  </div>
+  <img id="brandmark" src="assets/sprites/feather.png" alt="">
+  <div id="lives"></div>
+  <div id="pad">
+    <div class="grp">
+      <button class="dbtn" id="left">◀</button>
+      <button class="dbtn" id="right">▶</button>
+    </div>
+    <div class="grp">
+      <button id="string">STRING</button>
+      <button id="jump">JUMP</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen on" id="startScreen">
+  <div class="card paper">
+    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">Robinhood Chain · Collector Series</div>
+    <div style="font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:6px">VLAD:<br><span class="hl">UNBOXED</span></div>
+    <div class="body">
+      Six inches of collectible plastic, sealed on his desk. Kick the blister open —
+      the box you go home in is all the way at the other end.
+    </div>
+    <div class="body" style="font-size:12px;opacity:.66;margin-top:8px">
+      Jump twice for a <b>double jump</b>. The <b>pull-string</b> grabs <b>cable loops</b> on its own.
+    </div>
+    <button class="btn" id="startBtn">CLIMB OUT</button>
+    <div class="keys">← → move · SPACE / ↑ jump · J / SHIFT let go · R respawn · M mute</div>
+    <div id="ca">CA 0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</div>
+  </div>
+</div>
+
+<div class="screen" id="overScreen">
+  <div class="card paper">
+    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt=""><span id="overKick">Knocked off the desk</span></div>
+    <div id="overTitle" style="font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1;margin-top:5px">OUT OF LIVES</div>
+    <div class="quote" id="vladLine" style="font-size:15px;font-weight:700;font-style:italic;line-height:1.35;margin-top:10px">“They keep underestimating us, Vlad.”</div>
+    <div class="byline" style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;opacity:.5;margin-top:7px;font-weight:700">— Vlad Tenev, to his action figure</div>
+    <div class="statrow" style="display:flex;gap:16px;margin-top:14px;border-top:2px solid rgba(11,11,13,.15);padding-top:10px">
+      <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">$VLAD</span><b id="oCoins" style="font-size:19px;font-weight:900">0</b></div>
+      <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Furthest</span><b id="oDist" style="font-size:19px;font-weight:900">0%</b></div>
+      <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Best</span><b id="oBest" style="font-size:19px;font-weight:900">0%</b></div>
+    </div>
+    <button class="btn" id="againBtn">RUN IT BACK</button>
+  </div>
+</div>
+
+<div id="footer">
+  <a href="https://x.com/thejpegjunkie" target="_blank" rel="noopener">made by <b>jpegjunkie</b></a>
+  <a id="buy" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood"
+     target="_blank" rel="noopener">
+    <span class="ca">0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</span>
+    <span class="chip"><img class="fea" src="assets/sprites/feather.png" alt="">BUY</span>
+  </a>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const CA = "0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5";
+
+/* ============================ VIEW ============================ */
+// Fixed virtual HEIGHT, variable width — a side-scroller wants consistent vertical
+// framing and whatever horizontal room the device happens to have.
+const VH_FIX = 320;
+// ...but a portrait phone is 1:2, and locking height there starves the width: at 430x860,
+// VH_FIX 320 leaves 160 units of world across, and an 84-unit character eats half of it.
+// VW_MIN is the floor — zoom out rather than let the view collapse. Landscape never hits it.
+const VW_MIN = 240;
+let VW = 960, VH = VH_FIX, scale = 1, dpr = 1;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+function resize(){
+  dpr = Math.min(window.devicePixelRatio||1, 2.5);
+  const w = innerWidth, h = innerHeight;
+  scale = Math.min(h/VH_FIX, w/VW_MIN);
+  VH = h/scale; VW = w/scale;
+  cv.style.width=w+"px"; cv.style.height=h+"px";
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
+}
+addEventListener("resize", ()=>{ resize(); if(G.mode==="start"||G.mode==="intro") frameTitle(); });
+resize();
+
+/* ============================ PALETTE ============================ */
+const C = {
+  wall:"#E8DFCE", wallDark:"#D6CAB3",
+  wood:"#B98A52", woodLit:"#CFA06A", woodEdge:"#7A5429",
+  sticky:"#F5E663", stickyDark:"#DCC93F",
+  key:"#31363E", keyTop:"#454C57", keyLit:"#5A6470",
+  mug:"#F4F1EA", mugDark:"#CFC9BC",
+  pen:"#3E9B4F", penDark:"#2C7038",
+  cable:"#23262B", candle:"#E0484F", candleDark:"#AE343A",
+  lime:"#C2E619", limeHot:"#D6F32F", void:"#0B0B0D", paper:"#F2F0EC",
+  skin:"#C99A78", skinLit:"#E3B590", skinDark:"#A87B5C",
+  hair:"#1A1512", tee:"#6E9155", teeDark:"#54703F",
+  denim:"#3D5470", denimDark:"#2C3E54"
+};
+
+/* ============================ FEEL ============================ */
+// The whole ballgame for a platformer. Coyote and buffer are SEPARATE timers on
+// purpose — merged into one flag, stale input fires after pauses.
+const GRAV=2300, GRAV_APEX=0.62, APEX_V=170, FALL_MAX=1250;
+const RUN_MAX=290, ACC_GND=2900, ACC_AIR=1900, FRIC=2600;
+const JUMP_V=-700, JUMP_CUT=-250, COYOTE=0.10, BUFFER=0.12;
+const AIR_JUMPS=1, AIR_JUMP_V=-620;   // double jump
+const ROPE_RANGE=270, ROPE_MIN=54, SWING_ACC=780;
+
+/* ============================ LEVEL ============================ */
+const GY = 430;
+const S = (x,y,w,h,t)=>({x,y,w,h,t});
+const solids = [
+  S(-40,GY,1020,260,"desk"),
+  S(300,GY-56,120,56,"sticky"), S(330,GY-104,90,48,"sticky"),
+  S(600,GY-40,110,40,"sticky"), S(620,GY-84,80,44,"sticky"),
+  S(800,GY-150,120,26,"shelf"),
+
+  S(1420,GY,760,260,"desk"),
+  S(1500,GY-70,90,70,"key"), S(1660,GY-120,90,26,"shelf"),
+
+  S(2260,GY+30,1180,230,"desk"),
+  S(2300,GY-10,84,40,"key"),  S(2410,GY-56,84,40,"key"),  S(2520,GY-102,84,40,"key"),
+  S(2650,GY-56,84,40,"key"),  S(2760,GY-10,84,40,"key"),  S(2880,GY-64,84,40,"key"),
+  S(3000,GY-120,84,40,"key"), S(3120,GY-70,84,40,"key"),  S(3240,GY-16,84,40,"key"),
+
+  S(3560,GY,900,260,"desk"),
+  S(3640,GY-130,150,130,"mug"),
+  S(3880,GY-40,190,20,"pen"), S(4120,GY-96,190,20,"pen"),
+
+  S(4620,GY,1000,260,"desk"),
+  S(4700,GY-70,150,26,"shelf"), S(4930,GY-150,150,26,"shelf"),
+  S(5180,GY-236,150,26,"shelf"), S(5420,GY-150,150,26,"shelf"),
+
+  S(5760,GY,900,260,"desk"),
+  S(5900,GY-60,100,26,"shelf"), S(6120,GY-118,100,26,"shelf"),
+];
+const anchors = [
+  {x:1120,y:GY-215},{x:1330,y:GY-215},
+  {x:2180,y:GY-225},
+  {x:3500,y:GY-250},{x:4520,y:GY-235},
+  {x:5060,y:GY-330},{x:5300,y:GY-360},
+  {x:5700,y:GY-250},
+];
+const coinsSrc = [[360,GY-140],[640,GY-130],[830,GY-190],[1180,GY-160],[1260,GY-120],[1340,GY-160],
+  [1540,GY-120],[1700,GY-170],[2320,GY-60],[2430,GY-106],[2540,GY-152],[2670,GY-106],
+  [2790,GY-60],[2900,GY-114],[3020,GY-170],[3140,GY-120],[3260,GY-66],
+  [3700,GY-190],[3960,GY-90],[4200,GY-146],[4720,GY-120],[4960,GY-200],
+  [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168]].map(([x,y])=>({x,y}));
+// Desk junk with opinions. (t, spawn x, surface y, patrol left, patrol right)
+//   walker  — paces its stretch of desk, turns at the bounds. Stompable.
+//   charger — sits still until you're close, telegraphs, then runs you down. Stompable.
+//   candle  — a red chart candle that erupts out of the desk. NOT stompable, time it.
+// Every entry is checked by test/smoke.mjs: it must stand on a real surface and its
+// bounds must stay on that surface, or it walks off into the void.
+const F = (t,x,y,a,b)=>({t,x,y,a,b});
+const foesSrc = [
+  F("walker", 860,GY-30,   740, 960),
+  F("walker",1900,GY-30,  1720,2160),
+  F("walker",3100,GY,     2900,3400),   // the floor under the keyboard climb has teeth
+  F("candle",3350,GY+30,  3350,3350),
+  F("charger",4300,GY-34, 3900,4450),
+  F("walker",4900,GY-30,  4780,5040),
+  F("candle",5300,GY,     5300,5300),
+  F("charger",6200,GY-34, 5920,6450),
+];
+const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56]};
+// C2 landed 2026-08-05: real desk junk, no more flat silhouettes next to a photoreal hero.
+// Walkers chatter, the charger is a stapler. C1 stays on disk, unused.
+const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"]};
+const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104;
+
+const checkpoints = [40,1460,2300,3600,4660,5800];
+const GOAL = {x:6520,y:GY-96,w:76,h:96};
+const LEVEL_END = 6700;
+
+/* ============================ SPRITES ============================ */
+// Frames are pre-normalised by tools/build-sprites.py: every frame sits on ONE canvas
+// with ONE pivot, so switching frames can never make the character bob or slide.
+// The manifest is inlined rather than fetched — fetch() on file:// is CORS-blocked and
+// would fail silently when Chris opens index.html directly.
+const CHAR = { w:266, h:212, pivotX:177, pivotY:206, standPx:200 };
+const SPR_H = 84;                                  // standing height in world units
+const KW = CHAR.standPx ? SPR_H / CHAR.standPx : 0.22;  // world units per source pixel
+// NB: `K` is already the input map further down — do not reuse that name here.
+
+const FRAMES = ["idle0","idle1","hurt","down","rise","apex","fall","land","flip","hang",
+                "run0","run1","run2","run3","run4","run5","run6","run7"];
+const IMGS = {}; let spritesReady = 0, spritesTotal = 0;
+function loadImg(key, path){
+  spritesTotal++;
+  const im = new Image();
+  im.onload = ()=>{ IMGS[key]=im; spritesReady++; };
+  im.onerror = ()=>{ spritesTotal--; };   // missing art must never block the game
+  im.src = path;
+}
+// NB: no "cable" — that sprite is a cord ending in a hanging loop, which at desk scale reads as
+// a noose. The anchors are drawn as plain hanging ropes instead. See drawAnchor.
+const PROPS = ["sticky","keycap","mug","pen","ruler","feather","front",
+               "teeth0","teeth1","clip","stapler","knockoff"];
+const COIN_N = 8, COIN_H = 27;      // coin0 = face-on, coin7 = edge-on
+for(let i=0;i<COIN_N;i++) PROPS.push("coin"+i);
+// B3, the pack open sequence — not generated yet, the loader shrugs off the 404s and
+// drawPack falls back to a vector placeholder. Declared HERE and not down in the pack
+// section: the load loop below runs at module init and would hit the TDZ otherwise.
+const PACK_FRAMES = ["pack0","pack1","pack2","pack3","pack4","pack5"];
+for(const f of FRAMES) loadImg(f, "assets/sprites/"+f+".png");
+for(const p of PROPS) loadImg(p, "assets/sprites/"+p+".png");
+for(const p of PACK_FRAMES) loadImg(p, "assets/sprites/"+p+".png");   // B3, not generated yet
+// whatever art the enemies currently point at — swapping FOE_ART to the C2 slots loads those
+for(const e of Object.values(FOE_ART).flat()) loadImg(e, "assets/sprites/"+e+".png");
+loadImg("box", "assets/sprites/box.png");
+loadImg("bg",  "assets/D1-Background.png");
+const spriteOK = ()=> !!IMGS.idle0;
+let useSprite = true;      // window.__u.toggleSprite() to A/B against the vector figure
+let useProps  = true;      // window.__u.toggleProps()  — same, for the desk furniture
+
+// Which frame does the current state want?
+function pickFrame(p){
+  if(p.dead>0)   return "down";
+  if(p.roped)    return "hang";
+  if(p.flip>0)   return "flip";
+  if(p.hurt>0.85)return "hurt";
+  if(!p.ground){
+    if(p.landT>0) return "land";
+    if(p.vy < -180) return "rise";
+    if(p.vy >  180) return "fall";
+    return "apex";
+  }
+  if(p.landT>0) return "land";
+  if(Math.abs(p.vx)>16) return "run"+(((p.anim*0.65)|0)%8);
+  return ((G.t*2)|0)%2 ? "idle1" : "idle0";
+}
+
+/* The house mark. One helper so the feather lands the same way everywhere it's stamped —
+   sized by HEIGHT, anchored top-left, aspect preserved. */
+// NB: no tint option on purpose. Tinting an image on canvas needs an offscreen buffer —
+// `source-atop` would repaint every opaque pixel already on the frame, not just the feather.
+// The mark is dark on lime by design anyway, and every surface it lands on here is light.
+function feather(x,y,h,alpha){
+  const im=IMGS.feather; if(!im) return 0;
+  const w=h*(im.naturalWidth/im.naturalHeight);
+  if(alpha!=null) ctx.globalAlpha=alpha;
+  ctx.drawImage(im,x,y,w,h);
+  ctx.globalAlpha=1;
+  return w;
+}
+
+/* ============================ THE PACK ============================ */
+// B2's art is a SEALED pack with a figure-shaped cavity, so the figure composites straight
+// into it — no keyed hole needed, he just draws on top of his own empty mould.
+// Fractions of the pack image, measured off box.png. Re-measure if B3 changes the framing.
+const PACK   = {cx:0.49, footY:0.912, figH:0.70};   // measured off B3's pack0 mould
+const PACK_H = 152, PACK_X = 120;      // the intro pack, standing on the desk at the level start
+
+// open: 0 = sealed, 1 = wide open. Drives the real B3 frames when they exist and a vector
+// plastic-split placeholder until then.
+function drawPack(cx, bottom, h, open, withFigure){
+  const seq = PACK_FRAMES.map(f=>IMGS[f]).filter(Boolean);
+  const im  = seq.length===PACK_FRAMES.length
+            ? seq[clamp(Math.round(open*(seq.length-1)),0,seq.length-1)] : IMGS.box;
+  if(!im) return;
+  const w = h*(im.naturalWidth/im.naturalHeight), x = cx-w/2, y = bottom-h;
+  ctx.drawImage(im, x, y, w, h);
+
+  // A1's FRONT view, not the side idle — a figure in a front-facing blister has to face out.
+  const fig = IMGS.front;
+  if(withFigure && fig){
+    const fh = h*PACK.figH, fw = fh*(fig.naturalWidth/fig.naturalHeight);
+    ctx.drawImage(fig, x+w*PACK.cx-fw/2, y+h*PACK.footY-fh, fw, fh);
+  }
+  feather(x+w*0.09, y+h*0.045, h*0.09, .82);   // the blank top-left corner B3 was asked to leave
+
+  if(seq.length===PACK_FRAMES.length) return;
+  // placeholder: the clear blister splits down the middle and swings off the card
+  const cw=w*0.62, ch=h*0.73, cxw=x+w*0.5, cy=y+h*0.13;
+  for(const s of [-1,1]){
+    ctx.save();
+    ctx.translate(cxw+s*cw/2, cy+ch/2);
+    ctx.scale(1-open*0.94, 1);
+    ctx.rotate(s*open*0.22);
+    ctx.fillStyle="rgba(255,255,255,.24)"; ctx.fillRect(s<0?0:-cw/2, -ch/2, cw/2, ch);
+    ctx.fillStyle="rgba(255,255,255,.5)";  ctx.fillRect(s<0?4:-cw/2+4, -ch/2+5, 3, ch-10);
+    ctx.restore();
+  }
+  if(open>0.02 && open<0.99){
+    ctx.strokeStyle=C.limeHot; ctx.lineWidth=2; ctx.globalAlpha=1-open;
+    ctx.beginPath(); ctx.moveTo(cxw,cy); ctx.lineTo(cxw,cy+ch); ctx.stroke(); ctx.globalAlpha=1;
+  }
+}
+
+/* ============================ STATE ============================ */
+const G = {
+  mode:"start", t:0,
+  p:{x:60,y:GY-60,px:60,py:GY-60,w:20,h:34,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
+     roped:false,anchor:null,lastA:null,ax:0,ay:0,ropeLen:0,anim:0,hurt:0,dead:0,
+     airJumps:0,flip:0,landT:0,grabCd:0},
+  cam:{x:0,y:0}, coins:[], bits:[], foes:[],
+  got:0, lives:3, cp:0, maxX:0, shk:0, flash:0, hitstop:0,
+  seq:0, packOpen:0, goalOpen:1, hidePlayer:false,
+  best:+(localStorage.getItem('unboxed_best')||0),
+};
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+/* ============================ AUDIO ============================ */
+let AC=null, muted=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f0,f1,d,ty,g0,dl){
+  const a=ac(); if(!a||muted) return;
+  const t=a.currentTime+(dl||0), o=a.createOscillator(), g=a.createGain();
+  o.type=ty||"square"; o.frequency.setValueAtTime(f0,t);
+  if(f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+d);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(g0||.07,t+.008);
+  g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+d+.02);
+}
+function noise(d,g0,hp){
+  const a=ac(); if(!a||muted) return;
+  const n=Math.floor(a.sampleRate*d), buf=a.createBuffer(1,n,a.sampleRate), da=buf.getChannelData(0);
+  for(let i=0;i<n;i++) da[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
+  const s=a.createBufferSource(); s.buffer=buf;
+  const f=a.createBiquadFilter(); f.type="highpass"; f.frequency.value=hp||400;
+  const g=a.createGain(); g.gain.value=g0||.12;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+const SFX = {
+  jump(){ tone(360,700,.10,"square",.05); },
+  land(){ tone(150,80,.06,"square",.045); },
+  dbl(){ tone(520,980,.11,"square",.055); noise(.09,.04,1200); },
+  miss(){ noise(.07,.05,1800); },
+  latch(){ tone(700,1250,.08,"square",.06); },
+  coin(){ tone(1050,1600,.07,"square",.045); tone(1500,2100,.06,"square",.03,.05); },
+  hurt(){ tone(300,70,.28,"sawtooth",.12); noise(.2,.12,300); },
+  swing(){ noise(.09,.03,900); },
+  stomp(){ tone(220,60,.13,"square",.09); noise(.12,.09,500); },
+  crack(){ noise(.16,.11,2200); tone(900,300,.1,"square",.05); },
+  seal(){ tone(420,180,.16,"square",.07); noise(.08,.05,900,.06); },
+  tell(){ tone(150,240,.12,"sawtooth",.05); },
+};
+
+/* ============================ INPUT ============================ */
+const K = {left:false,right:false,jump:false,string:false};
+let jumpEdge=false, stringEdge=false;
+addEventListener("keydown",e=>{
+  if(e.repeat) return;
+  if(["ArrowLeft","KeyA"].includes(e.code)) K.left=true;
+  if(["ArrowRight","KeyD"].includes(e.code)) K.right=true;
+  if(["Space","ArrowUp","KeyW"].includes(e.code)){ K.jump=true; jumpEdge=true; e.preventDefault(); }
+  if(["KeyJ","ShiftLeft","ShiftRight"].includes(e.code)){ K.string=true; stringEdge=true; }
+  if(e.code==="KeyM") muted=!muted;
+  if(e.code==="KeyR" && G.mode==="play") loseLife(true);
+  if(e.code==="Enter" && G.mode!=="play") (G.mode==="over"?restart:start)();
+});
+addEventListener("keyup",e=>{
+  if(["ArrowLeft","KeyA"].includes(e.code)) K.left=false;
+  if(["ArrowRight","KeyD"].includes(e.code)) K.right=false;
+  if(["Space","ArrowUp","KeyW"].includes(e.code)) K.jump=false;
+  if(["KeyJ","ShiftLeft","ShiftRight"].includes(e.code)) K.string=false;
+});
+function hold(el,on,off){
+  const d=e=>{e.preventDefault(); on();}, u=e=>{e.preventDefault(); off&&off();};
+  el.addEventListener("touchstart",d,{passive:false});
+  el.addEventListener("touchend",u,{passive:false});
+  el.addEventListener("touchcancel",u,{passive:false});
+  el.addEventListener("mousedown",d); el.addEventListener("mouseup",u); el.addEventListener("mouseleave",u);
+}
+hold(document.getElementById("left"),  ()=>K.left=true,  ()=>K.left=false);
+hold(document.getElementById("right"), ()=>K.right=true, ()=>K.right=false);
+hold(document.getElementById("jump"),  ()=>{K.jump=true;jumpEdge=true;}, ()=>K.jump=false);
+hold(document.getElementById("string"),()=>{K.string=true;stringEdge=true;}, ()=>K.string=false);
+
+/* ============================ COLLISION ============================ */
+function hits(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
+// Does the segment (x0,y0)->(x1,y1) touch the box centred on (cx,cy) with half-extents hw,hh?
+// Liang-Barsky. Used by the coin pickup so a single fast frame can't step over a coin.
+function segBox(x0,y0,x1,y1,cx,cy,hw,hh){
+  const dx=x1-x0, dy=y1-y0;
+  let t0=0, t1=1;
+  const slab=(p,q)=>{
+    if(p===0) return q>=0;              // parallel: inside the slab or nothing to clip against
+    const r=q/p;
+    if(p<0){ if(r>t1) return false; if(r>t0) t0=r; }
+    else   { if(r<t0) return false; if(r<t1) t1=r; }
+    return true;
+  };
+  return slab(-dx, x0-(cx-hw)) && slab(dx, (cx+hw)-x0)
+      && slab(-dy, y0-(cy-hh)) && slab(dy, (cy+hh)-y0);
+}
+function moveAxis(p,dx,dy){
+  if(dx){
+    p.x += dx;
+    for(const s of solids){ if(!hits(p,s)) continue;
+      p.x = dx>0 ? s.x-p.w : s.x+s.w; p.vx=0; }
+  }
+  if(dy){
+    p.y += dy; p.ground=false;
+    for(const s of solids){ if(!hits(p,s)) continue;
+      if(dy>0){ p.y=s.y-p.h; p.ground=true; } else p.y=s.y+s.h;
+      p.vy=0; }
+  }
+}
+
+/* ============================ PULL-STRING ============================ */
+function bestAnchor(p){
+  let best=null, bd=ROPE_RANGE;
+  const cx=p.x+p.w/2, cy=p.y+p.h/2;
+  for(const a of anchors){
+    if(a.y > cy-10) continue;
+    const d=Math.hypot(a.x-cx,a.y-cy);
+    if(d<bd){ bd=d; best=a; }
+  }
+  return best;
+}
+// How far under your feet the next standable surface is. 1e9 means nothing at all is down there.
+function groundBelow(p){
+  const cx=p.x+p.w/2, feet=p.y+p.h; let best=1e9;
+  for(const s of solids){
+    if(cx<s.x || cx>s.x+s.w || s.y<feet-2) continue;
+    best=Math.min(best, s.y-feet);
+  }
+  return best;
+}
+// Which loop, if any, should grab you WITHOUT being asked. Three gates, all learned from Chris
+// getting yanked backwards mid-run (2026-08-05: "the auto grab keeps grabbing me and taking me
+// back, counter productive"):
+//   1. there has to be nothing under you — with desk beneath your feet the rope isn't the answer
+//   2. it has to be AHEAD of you. latching a loop you already cleared is exactly "takes me back"
+//   3. never the loop you just let go of, until you've touched ground again. let go means let go.
+function autoAnchor(p){
+  if(p.roped || p.ground || p.grabCd>0 || p.vy<-140) return null;
+  if(groundBelow(p) < 210) return null;
+  const a=bestAnchor(p); if(!a || a===p.lastA) return null;
+  const cx=p.x+p.w/2;
+  if(p.vx> 60 && a.x < cx-12) return null;
+  if(p.vx<-60 && a.x > cx+12) return null;
+  return a;
+}
+function fireString(anchor){
+  const p=G.p;
+  if(p.roped) return;
+  const a=anchor||bestAnchor(p);
+  if(!a){ SFX.miss(); return; }
+  p.lastA=null;
+  p.roped=true; p.anchor=a; p.ax=a.x; p.ay=a.y; p.airJumps=AIR_JUMPS;
+  p.ropeLen=Math.max(ROPE_MIN, Math.hypot(a.x-(p.x+p.w/2), a.y-(p.y+p.h/2)));
+  SFX.latch();
+}
+
+/* ============================ LOOP ============================ */
+let last=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=Math.min((now-last)/1000,0.045); last=now;
+  // G.t is the animation clock for the whole game, not just gameplay — the coins still spin
+  // and the loops still pulse during the unboxing. It used to tick inside update(), which
+  // froze it for the entire intro and outro.
+  if(G.mode!=="start") G.t+=dt;
+  if(G.hitstop>0) G.hitstop-=dt;
+  else if(G.mode==="play")  update(dt);
+  else if(G.mode==="intro") stepIntro(dt);
+  else if(G.mode==="outro") stepOutro(dt);
+  G.shk=lerp(G.shk,0,clamp(dt*9,0,1));
+  G.flash=Math.max(0,G.flash-dt*3);
+  stepBits(dt);
+  draw();
+  jumpEdge=false; stringEdge=false;
+}
+requestAnimationFrame(n=>{last=n;requestAnimationFrame(frame);});
+
+/* The bookends. He starts sealed in the pack and kicks his way out; he finishes by diving
+   back in and the pack seals behind him. Same asset, same animation, played in reverse. */
+function stepIntro(dt){
+  G.seq += dt;
+  G.packOpen = clamp((G.seq-0.30)/0.45, 0, 1);
+  if(G.seq>0.34 && G.seq-dt<=0.34){ SFX.crack(); G.shk=6; }
+  if(G.seq<0.90) return;      // camera holds the title framing until he's out
+
+  const p=G.p;                                    // and out he comes
+  p.x = PACK_X-p.w/2; p.y = GY-PACK_H*PACK.footY-p.h+PACK_H*(1-PACK.footY);
+  p.vx = 150; p.vy = -540; p.ground=false; p.face=1; p.flip=1; p.airJumps=AIR_JUMPS;
+  G.hidePlayer=false; G.mode="play"; G.shk=9;
+  burst(PACK_X,GY-20,16,C.limeHot); SFX.dbl();
+}
+function startOutro(){
+  if(G.mode!=="play") return;
+  const p=G.p;
+  G.mode="outro"; G.seq=0; G.hidePlayer=false;
+  p.roped=false; p.vx=190; p.vy=-380; p.face=1; p.flip=1;   // hop into the box
+}
+function stepOutro(dt){
+  G.seq += dt; const p=G.p;
+  if(G.seq<0.40){
+    p.vy += GRAV*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+    p.flip = Math.max(0,p.flip-dt*2.4);
+  } else if(!G.hidePlayer){
+    G.hidePlayer=true; SFX.crack(); burst(GOAL.x+GOAL.w/2,GOAL.y+GOAL.h/2,14,C.limeHot);
+  }
+  G.goalOpen = G.seq<0.40 ? 1 : clamp(1-(G.seq-0.40)/0.45, 0, 1);
+  if(G.seq>1.05){ SFX.seal(); endRun(true); }
+  updateCamera(dt);
+}
+
+function update(dt){
+  const p=G.p;
+  p.px=p.x; p.py=p.y;       // where the body was before this frame's physics — the stomp test
+
+  if(p.dead>0){
+    p.dead-=dt; p.y+=420*dt;
+    if(p.dead<=0) respawn();
+    updateCamera(dt); return;
+  }
+
+  // The string is automatic. Nobody found the button, and hunting for a grab mid-jump is not
+  // the interesting decision — the swing is. Tapping STRING is now a deliberate LET GO, and the
+  // cooldown stops the loop you just released from snatching you straight back.
+  p.grabCd = Math.max(0, p.grabCd - dt);
+  if(p.ground) p.lastA=null;                  // touching down clears the "don't re-grab" mark
+  if(stringEdge){
+    if(p.roped){ p.lastA=p.anchor; p.roped=false; p.grabCd=0.5; }
+    else fireString();                        // a deliberate press ignores the auto gates
+  }
+  const auto=autoAnchor(p);
+  if(auto) fireString(auto);
+
+  const dir=(K.right?1:0)-(K.left?1:0);
+  if(dir) p.face=dir;
+
+  if(p.roped){
+    // pendulum: gravity, integrate, then a hard positional constraint with the
+    // radial velocity component removed. Classic rope, no springiness.
+    p.vy += GRAV*0.92*dt;
+    if(dir){
+      const cx=p.x+p.w/2, cy=p.y+p.h/2;
+      let tx=-(cy-p.ay), ty=(cx-p.ax);
+      const tl=Math.hypot(tx,ty)||1; tx/=tl; ty/=tl;
+      if(tx*dir<0){ tx=-tx; ty=-ty; }
+      p.vx += tx*SWING_ACC*dt; p.vy += ty*SWING_ACC*dt;
+    }
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    const cx=p.x+p.w/2, cy=p.y+p.h/2;
+    let dx=cx-p.ax, dy=cy-p.ay, d=Math.hypot(dx,dy)||1;
+    if(d>p.ropeLen){
+      const nx=dx/d, ny=dy/d;
+      p.x-=(d-p.ropeLen)*nx; p.y-=(d-p.ropeLen)*ny;
+      const radial=p.vx*nx+p.vy*ny;
+      if(radial>0){ p.vx-=radial*nx; p.vy-=radial*ny; }
+    }
+    if(Math.abs(p.vx)>150 && Math.random()<0.22) SFX.swing();
+    p.ground=false; p.coyote=0;
+    // don't let the swing arc pass through geometry
+    for(const s of solids){
+      if(!hits(p,s)) continue;
+      if(p.vy>0 && (p.y+p.h)-s.y < 22){ p.y=s.y-p.h; p.vy=0; p.ground=true; p.roped=false; }
+      else if(p.vx>0) { p.x=s.x-p.w; p.vx=0; }
+      else if(p.vx<0) { p.x=s.x+s.w; p.vx=0; }
+    }
+    if(jumpEdge){ p.lastA=p.anchor; p.roped=false; p.grabCd=0.5;
+                  p.vy=Math.min(p.vy,JUMP_V*0.78); SFX.jump(); }
+  } else {
+    const acc = p.ground?ACC_GND:ACC_AIR;
+    if(dir) p.vx += dir*acc*dt;
+    else if(p.ground) p.vx -= Math.sign(p.vx)*Math.min(Math.abs(p.vx),FRIC*dt);
+    p.vx = clamp(p.vx,-RUN_MAX,RUN_MAX);
+
+    // lighter gravity near the apex = hang time. Single biggest feel win.
+    const g = (Math.abs(p.vy)<APEX_V) ? GRAV*GRAV_APEX : GRAV;
+    p.vy = Math.min(p.vy+g*dt, FALL_MAX);
+
+    p.coyote = p.ground ? COYOTE : Math.max(0,p.coyote-dt);
+    if(p.ground) p.airJumps = AIR_JUMPS;
+    if(jumpEdge) p.buffer=BUFFER; else p.buffer=Math.max(0,p.buffer-dt);
+    if(p.buffer>0 && p.coyote>0){
+      p.vy=JUMP_V; p.buffer=0; p.coyote=0; p.ground=false;
+      burst(p.x+p.w/2,p.y+p.h,5,C.paper); SFX.jump();
+    } else if(p.buffer>0 && p.airJumps>0){
+      // double jump: SET the velocity rather than add, so a mistimed second jump
+      // while still rising can never stack into a super-jump
+      p.airJumps--; p.buffer=0; p.vy=AIR_JUMP_V; p.flip=1;
+      for(let i=0;i<10;i++)
+        G.bits.push({x:p.x+p.w/2+rnd(-9,9),y:p.y+p.h,vx:rnd(-110,110),vy:rnd(-40,120),
+                     life:rnd(.2,.4),t:0,s:rnd(2,4),c:C.limeHot});
+      SFX.dbl();
+    }
+    if(!K.jump && p.vy<JUMP_CUT) p.vy=JUMP_CUT;   // variable jump height
+
+    const wasGround=p.ground;
+    moveAxis(p,p.vx*dt,0);
+    moveAxis(p,0,p.vy*dt);
+    if(!wasGround && p.ground){ SFX.land(); burst(p.x+p.w/2,p.y+p.h,6,C.paper); p.landT=0.13; }
+  }
+
+  p.anim += dt*(p.ground?Math.abs(p.vx)/48:6);
+  if(p.flip>0) p.flip = Math.max(0, p.flip - dt*3.1);
+  if(p.landT>0) p.landT = Math.max(0, p.landT - dt);
+  p.hurt = Math.max(0,p.hurt-dt);
+  G.maxX = Math.max(G.maxX,p.x);
+
+  if(p.y > GY+520){ loseLife(); return; }
+  stepFoes(dt);
+  if(p.dead>0){ updateCamera(dt); return; }
+
+  // Coins are a SWEPT test, not a point test. The window is 48x52, but dt is clamped at 0.045s
+  // and FALL_MAX is 1250 — one frame can move 56 units vertically, further than the whole
+  // window — so a point test at the new position steps clean over a coin on a fast fall, and a
+  // fast diagonal clips the corner without ever sampling inside. On a phone at 30fps it happens
+  // constantly. Chris, 2026-08-06: "not all of the coins im actually collecting."
+  const kx0=p.px+p.w/2, ky0=p.py+p.h/2, kx1=p.x+p.w/2, ky1=p.y+p.h/2;
+  for(const c of G.coins){
+    if(c.got) continue;
+    if(segBox(kx0,ky0,kx1,ky1,c.x,c.y,24,26)){
+      c.got=true; G.got++; burst(c.x,c.y,7,C.limeHot); SFX.coin(); syncHUD();
+    }
+  }
+  for(let i=0;i<checkpoints.length;i++) if(p.x>checkpoints[i]) G.cp=i;
+
+  if(hits({x:p.x,y:p.y,w:p.w,h:p.h}, GOAL)) startOutro();
+
+  updateCamera(dt);
+}
+
+function updateCamera(dt){
+  const p=G.p;
+  const wantX=clamp(p.x-VW*0.38+p.face*70,-40,LEVEL_END-VW+40);
+  const wantY=clamp(p.y-VH*0.56,-420,180);
+  G.cam.x=lerp(G.cam.x,wantX,clamp(dt*6.5,0,1));
+  G.cam.y=lerp(G.cam.y,wantY,clamp(dt*4.2,0,1));
+}
+
+/* ============================ DESK JUNK ============================ */
+function mkFoe(s){
+  const [w,h]=FOE_BOX[s.t];
+  return {t:s.t, x:s.x, y:s.t==="candle"?s.y:s.y, w, h:s.t==="candle"?0:h,
+          full:h, base:s.y, a:s.a, b:s.b, dir:-1, anim:0, state:"idle", timer:0,
+          phase:s.x*0.01, dead:0};
+}
+function stepFoes(dt){
+  const p=G.p, pc=p.x+p.w/2;
+  for(const f of G.foes){
+    if(f.dead>0){ f.dead-=dt; continue; }
+
+    if(f.t==="walker"){
+      f.x += f.dir*FOE_WALK*dt; f.anim += dt*7;
+      if(f.x<f.a){ f.x=f.a; f.dir=1; }
+      else if(f.x+f.w>f.b){ f.x=f.b-f.w; f.dir=-1; }
+
+    } else if(f.t==="charger"){
+      const d=pc-(f.x+f.w/2);
+      // only wakes for a player on roughly its own level — it can't see you on a shelf
+      const sees = Math.abs(d)<CHARGE_SEE && Math.abs((p.y+p.h)-(f.y+f.h))<70;
+      if(f.state==="idle"){
+        if(sees && G.mode==="play"){ f.state="tell"; f.timer=0.34; f.dir=Math.sign(d)||1; SFX.tell(); }
+      } else if(f.state==="tell"){
+        f.timer-=dt; if(f.timer<=0){ f.state="run"; f.timer=1.7; }
+      } else {
+        f.timer-=dt; f.x += f.dir*FOE_CHARGE*dt; f.anim += dt*16;
+        if(f.x<f.a || f.x+f.w>f.b || f.timer<=0){
+          f.x=clamp(f.x,f.a,f.b-f.w); f.state="idle"; f.timer=0;
+        }
+      }
+
+    } else {   // candle — bottom pinned to the desk, height is the animation
+      f.phase += dt*1.35;
+      const g=Math.max(0,Math.sin(f.phase));
+      f.h = f.full*Math.min(1,g*1.35);
+      f.y = f.base - f.h;
+    }
+
+    // p.hurt is the post-respawn i-frame window; without it you die on the spot you died
+    // respawn sets hurt=1.1; the first half-second of that is enemy immunity, or you
+    // rematerialise inside whatever killed you and lose the next life to the same frame
+    if(p.dead>0 || p.hurt>0.55 || G.mode!=="play" || f.h<6) continue;
+    if(!hits(p,f)) continue;
+    // "were you above it LAST frame", not "are you in its top 60% now" — at 2300 gravity a
+    // fast fall clears a 30-unit body inside one frame and the depth test reads as a side hit
+    if(f.t!=="candle" && p.vy>60 && (p.py+p.h) <= f.y+10){
+      f.dead=0.5; p.vy=STOMP_V; p.airJumps=AIR_JUMPS; p.buffer=0;
+      G.hitstop=0.06; G.shk=10;
+      burst(f.x+f.w/2,f.y,12,C.limeHot); SFX.stomp();
+    } else loseLife();
+  }
+}
+
+function burst(x,y,n,col){
+  for(let i=0;i<n;i++)
+    G.bits.push({x,y,vx:rnd(-150,150),vy:rnd(-260,-40),life:rnd(.25,.6),t:0,s:rnd(2,5),c:col||C.paper});
+}
+function stepBits(dt){
+  for(const b of G.bits){ b.t+=dt; b.vy+=900*dt; b.x+=b.vx*dt; b.y+=b.vy*dt; }
+  G.bits=G.bits.filter(b=>b.t<b.life);
+}
+function loseLife(silent){
+  const p=G.p;
+  if(p.dead>0) return;
+  p.dead=0.55; p.roped=false; p.vx=0; p.vy=-260;
+  G.lives--; G.flash=1; G.shk=14;
+  if(!silent) SFX.hurt();
+  syncHUD();
+}
+function respawn(){
+  const p=G.p;
+  if(G.lives<=0){ endRun(false); return; }
+  p.x=checkpoints[G.cp]; p.y=GY-90; p.vx=0; p.vy=0; p.dead=0; p.hurt=1.1; p.roped=false;
+  p.airJumps=AIR_JUMPS; p.flip=0; p.grabCd=0; p.lastA=null; p.anchor=null;
+  G.foes=foesSrc.map(mkFoe);      // the desk resets with you
+  G.cam.x=p.x-VW*0.38; G.cam.y=p.y-VH*0.56;
+  syncHUD();
+}
+
+function pct(){ return Math.round(clamp(G.maxX/GOAL.x,0,1)*100); }
+function endRun(won){
+  G.mode="over";
+  const d = won?100:pct();
+  G.best = Math.max(G.best, d);
+  localStorage.setItem("unboxed_best", G.best);
+  if(won){ G.flash=1; [0,.09,.18,.3].forEach((dl,i)=>tone(520+i*180,700+i*220,.16,"square",.06,dl)); }
+  document.getElementById("overKick").textContent  = won?"Back on the shelf":"Knocked off the desk";
+  document.getElementById("overTitle").textContent = won?"MADE IT HOME":"OUT OF LIVES";
+  document.getElementById("oCoins").textContent = G.got;
+  document.getElementById("oDist").textContent  = d+"%";
+  document.getElementById("oBest").textContent  = G.best+"%";
+  document.getElementById("vladLine").textContent = won ? "“Eventually, we’ll win.”"
+    : ["“They keep underestimating us, Vlad.”","“Wen action figure waitlist?”","“We go again. Same desk.”"][(Math.random()*3)|0];
+  setTimeout(()=>document.getElementById("overScreen").classList.add("on"), won?260:600);
+}
+
+/* ============================ DRAW ============================ */
+function draw(){
+  const sh=G.shk;
+  ctx.save();
+  if(sh>0.2) ctx.translate(rnd(-sh,sh),rnd(-sh,sh));
+  drawBackground();
+  ctx.save(); ctx.translate(-G.cam.x,-G.cam.y);
+  ctx.globalAlpha=1;                 // guard: a leaked alpha from the bg pass once
+  for(const s of solids) drawSolid(s);   // drew the entire world at 14% opacity
+  drawGoal();
+  for(const a of anchors) drawAnchor(a);
+  if(G.p.roped) drawRope();
+  for(const c of G.coins) if(!c.got) drawCoin(c);
+  for(const f of G.foes) drawFoe(f);
+  // sealed on the title card, cracking open on CLIMB OUT, gone once he's out
+  if(G.mode==="start"||G.mode==="intro")
+    drawPack(PACK_X, GY, PACK_H, G.packOpen, true);
+  if(!G.hidePlayer && G.mode!=="start" && G.mode!=="intro") drawPlayer();
+  for(const b of G.bits){
+    ctx.globalAlpha=clamp(1-b.t/b.life,0,1); ctx.fillStyle=b.c;
+    ctx.fillRect(b.x-b.s/2,b.y-b.s/2,b.s,b.s);
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+  if(G.flash>0){ ctx.globalAlpha=G.flash*.5; ctx.fillStyle=C.void; ctx.fillRect(0,0,VW,VH); ctx.globalAlpha=1; }
+  ctx.restore();
+}
+
+function drawBackground(){
+  const g=ctx.createLinearGradient(0,0,0,VH);
+  g.addColorStop(0,C.wall); g.addColorStop(1,C.wallDark);
+  ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
+  if(IMGS.bg){                                    // photographic office plate, tiled + parallaxed
+    const bh = VH*1.15, bw = bh*(IMGS.bg.naturalWidth/IMGS.bg.naturalHeight);
+    let ox = (-G.cam.x*0.10) % bw; if(ox>0) ox-=bw;
+    const oy = -G.cam.y*0.06 - VH*0.10;
+    ctx.globalAlpha=.85;
+    for(let x=ox; x<VW+bw; x+=bw) ctx.drawImage(IMGS.bg, x, oy, bw, bh);
+    ctx.globalAlpha=1;
+  }
+  const px=-G.cam.x*0.12, py=-G.cam.y*0.10;
+  ctx.globalAlpha=.14; ctx.fillStyle="#FFF6DC";
+  for(let i=0;i<7;i++){
+    const x=((i*430+px)%(VW+540))-270, y=40+py+((i*67)%150);
+    ctx.beginPath(); ctx.arc(x,y,34+(i%3)*14,0,6.3); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // house mark on the office wall, deepest parallax layer — furniture, not decoration
+  if(IMGS.feather){
+    const fh=VH*0.62, fw=fh*(IMGS.feather.naturalWidth/IMGS.feather.naturalHeight);
+    let fx=(-G.cam.x*0.05)%(VW+fw*3.2); if(fx>0) fx-=VW+fw*3.2;
+    for(let x=fx; x<VW+fw; x+=VW+fw*3.2)
+      feather(x, VH*0.10-G.cam.y*0.04, fh, .055);
+  }
+  const mx=-G.cam.x*0.2+340, my=-G.cam.y*0.16+150;
+  const rg=ctx.createRadialGradient(mx,my,10,mx,my,260);
+  rg.addColorStop(0,"rgba(194,230,25,.20)"); rg.addColorStop(1,"rgba(194,230,25,0)");
+  ctx.fillStyle=rg; ctx.fillRect(mx-260,my-260,520,520);
+}
+
+/* Photographed desk prop -> collision box.
+   Two hard rules, because the box is the truth and the art is decoration:
+     1. the sprite's TOP EDGE lands exactly on s.y, so what you see is what you stand on
+     2. nothing draws outside the box except a declared overhang (the mug handle)
+   Scaling is "cover" (max of the two ratios) so the box can never show a gap under the
+   player's feet. The crop therefore always eats the BOTTOM, which is the end resting on
+   the desk anyway. `stretch` opts out for props whose photo aspect can't match the box —
+   the mug is 22% taller than its slab and a crop would saw it in half. */
+function propFill(key,x,y,w,h,o){
+  const im=IMGS[key]; if(!useProps||!im) return false;
+  o=o||{};
+  const iw=im.naturalWidth, ih=im.naturalHeight, bw=o.bodyW||iw;
+  const k=Math.max(w/bw,h/ih);
+  const kx=o.stretch?w/bw:k, ky=o.stretch?h/ih:k;
+  const dx=(o.bodyX!=null) ? x-o.bodyX*kx : x+(w-iw*kx)/2;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x,y,w+(o.overR||0)*kx,h+(o.overB||0)*ky); ctx.clip();
+  ctx.drawImage(im,dx,y,iw*kx,ih*ky);
+  ctx.restore();
+  return true;
+}
+// grounds a photo cutout on the vector desk — without it they read as stickers
+function contactShadow(s){
+  if(s.y+s.h < GY-2) return;
+  ctx.globalAlpha=.22; ctx.fillStyle=C.void;
+  ctx.beginPath(); ctx.ellipse(s.x+s.w/2,s.y+s.h,s.w*.56,6,0,0,6.3); ctx.fill();
+  ctx.globalAlpha=1;
+}
+
+function drawSolid(s){
+  if(s.t!=="desk") contactShadow(s);
+  if(s.t==="desk"){
+    ctx.fillStyle=C.wood;    ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle=C.woodLit; ctx.fillRect(s.x,s.y,s.w,7);
+    ctx.fillStyle=C.woodEdge;ctx.fillRect(s.x,s.y+7,s.w,4);
+    // rounded end caps so the drop reads as a real desk edge you could fall off
+    ctx.fillStyle=C.woodEdge; ctx.fillRect(s.x,s.y,9,s.h); ctx.fillRect(s.x+s.w-9,s.y,9,s.h);
+    ctx.fillStyle="rgba(0,0,0,.16)";
+    ctx.fillRect(s.x+9,s.y+11,10,s.h-11); ctx.fillRect(s.x+s.w-19,s.y+11,10,s.h-11);
+    ctx.strokeStyle="rgba(122,84,41,.30)"; ctx.lineWidth=2;
+    for(let i=0;i<7;i++){
+      const y=s.y+26+i*30;
+      ctx.beginPath(); ctx.moveTo(s.x,y);
+      ctx.bezierCurveTo(s.x+s.w*.3,y+7,s.x+s.w*.6,y-7,s.x+s.w,y+3);
+      ctx.stroke();
+    }
+  } else if(s.t==="sticky"){
+    if(propFill("sticky",s.x,s.y,s.w,s.h)) return;
+    ctx.fillStyle=C.stickyDark; ctx.fillRect(s.x+3,s.y+4,s.w,s.h);
+    ctx.fillStyle=C.sticky;     ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle="rgba(0,0,0,.09)";
+    ctx.beginPath(); ctx.moveTo(s.x+s.w,s.y); ctx.lineTo(s.x+s.w-16,s.y); ctx.lineTo(s.x+s.w,s.y+16); ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,.14)"; ctx.lineWidth=2;
+    for(let i=1;i<3;i++){ const y=s.y+10+i*11; ctx.beginPath(); ctx.moveTo(s.x+10,y); ctx.lineTo(s.x+s.w-16,y); ctx.stroke(); }
+  } else if(s.t==="key"||s.t==="shelf"){
+    // keycaps are keyboard keys, shelves are the wooden ruler laid flat
+    if(propFill(s.t==="key"?"keycap":"ruler",s.x,s.y,s.w,s.h)) return;
+    ctx.fillStyle=C.key;    ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle=C.keyTop; ctx.fillRect(s.x+3,s.y,s.w-6,Math.min(10,s.h));
+    ctx.fillStyle=C.keyLit; ctx.fillRect(s.x+3,s.y,s.w-6,3);
+  } else if(s.t==="mug"){
+    // body is source px 0..61, handle overhangs to 84 — outside the collision box on purpose
+    if(propFill("mug",s.x,s.y,s.w,s.h,{bodyX:0,bodyW:61,overR:23,stretch:true})) return;
+    ctx.fillStyle=C.mugDark; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle=C.mug;     ctx.fillRect(s.x,s.y,s.w-22,s.h);
+    ctx.fillStyle=C.mugDark; ctx.fillRect(s.x,s.y,s.w,10);
+    ctx.strokeStyle=C.mug; ctx.lineWidth=15;
+    ctx.beginPath(); ctx.arc(s.x+s.w,s.y+s.h*.45,30,-1.15,1.15); ctx.stroke();
+  } else if(s.t==="pen"){
+    if(propFill("pen",s.x,s.y,s.w,s.h,{stretch:true})) return;
+    ctx.fillStyle=C.penDark; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle=C.pen;     ctx.fillRect(s.x,s.y,s.w,s.h-7);
+    ctx.fillStyle=C.paper;   ctx.fillRect(s.x+s.w-20,s.y,20,s.h);
+  }
+}
+
+/* The candle is deliberately NOT photoreal — it's a chart candle, same graphic register as
+   the lime coins. Desk junk gets photographed; market objects stay drawn. */
+function drawCandle(f){
+  if(f.h<2) return;
+  const cx=f.x+f.w/2, wick=Math.min(16,f.h*0.3);
+  ctx.strokeStyle=C.candleDark; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(cx,f.y-wick); ctx.lineTo(cx,f.y+f.h); ctx.stroke();
+  ctx.fillStyle=C.candleDark; ctx.fillRect(f.x,f.y,f.w,f.h);
+  ctx.fillStyle=C.candle;     ctx.fillRect(f.x,f.y,f.w-4,f.h);
+  ctx.fillStyle="rgba(255,255,255,.22)"; ctx.fillRect(f.x+3,f.y+2,4,Math.max(0,f.h-6));
+}
+function drawFoe(f){
+  if(f.t==="candle"){ drawCandle(f); return; }
+  const dead=f.dead>0, k=dead?clamp(f.dead/0.5,0,1):1;
+  const art=FOE_ART[f.t], im=useProps && art && (IMGS[art[art.length>1?((f.anim|0)%2):0]]);
+  ctx.save();
+  ctx.translate(f.x+f.w/2, f.y+f.h);
+  if(dead){ ctx.globalAlpha=k; ctx.scale(1+(1-k)*0.5, k); }
+  if(f.dir>0) ctx.scale(-1,1);                     // every sheet is drawn facing left
+  if(f.state==="tell") ctx.rotate(Math.sin(G.t*44)*0.05);   // the wind-up before the charge
+  if(im){
+    const s=f.h*1.16/im.naturalHeight;
+    ctx.drawImage(im, -im.naturalWidth*s/2, -im.naturalHeight*s, im.naturalWidth*s, im.naturalHeight*s);
+  } else {
+    ctx.fillStyle=C.void;
+    rr(-f.w/2,-f.h,f.w,f.h,5);
+    ctx.fillStyle=C.paper; ctx.fillRect(-f.w/2+4,-f.h+6,4,4);
+  }
+  ctx.restore();
+  if(!dead && f.state==="tell"){
+    ctx.globalAlpha=.5+Math.sin(G.t*30)*.3; ctx.fillStyle=C.candle;
+    ctx.fillRect(f.x+f.w/2-2,f.y-16,4,9); ctx.globalAlpha=1;
+  }
+}
+
+function drawAnchor(a){
+  const p=G.p, cx=p.x+p.w/2, cy=p.y+p.h/2;
+  const near = G.mode==="play" && !p.roped && a.y<cy-10 && Math.hypot(a.x-cx,a.y-cy)<ROPE_RANGE;
+  // A cord that ends in a hanging loop is a noose — obvious once you see it, and a spectacularly
+  // bad thing to hang over a game about a real person. These are plain ropes: they come straight
+  // down, they end in a knot, and the knot is the grab point. It has to sit EXACTLY on the anchor,
+  // because the anchor is the pendulum pivot the physics swings around.
+  const sway = Math.sin(G.t*1.4 + a.x*0.013)*6;
+  const top  = a.y-340, mid = a.y-150;
+  const rope = (off,w,style)=>{
+    ctx.strokeStyle=style; ctx.lineWidth=w; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(a.x+sway*1.5+off, top);
+    ctx.quadraticCurveTo(a.x+sway*0.9+off, mid, a.x+off, a.y);
+    ctx.stroke();
+  };
+  if(near){
+    ctx.globalAlpha=.26+Math.sin(G.t*7)*.14; ctx.fillStyle=C.limeHot;
+    ctx.beginPath(); ctx.arc(a.x,a.y,26,0,6.3); ctx.fill(); ctx.globalAlpha=1;
+  }
+  rope(0, 7, C.cable);
+  rope(-1.6, 2, "rgba(242,240,236,.13)");        // the twist catching the window light
+
+  // the knot you grab, plus a few frayed strands so the rope reads as ending, not cut off
+  ctx.strokeStyle=C.cable; ctx.lineWidth=2.4;
+  for(const d of [-4,0,4]){
+    ctx.beginPath(); ctx.moveTo(a.x+d*0.35, a.y+5);
+    ctx.quadraticCurveTo(a.x+d*0.8, a.y+10, a.x+d, a.y+14); ctx.stroke();
+  }
+  ctx.fillStyle=C.cable;
+  ctx.beginPath(); ctx.ellipse(a.x,a.y+1,7.5,8.5,0,0,6.3); ctx.fill();
+  ctx.fillStyle="rgba(242,240,236,.15)";
+  ctx.beginPath(); ctx.ellipse(a.x-2.4,a.y-1.5,2.2,3.4,0,0,6.3); ctx.fill();
+  if(near){
+    ctx.lineWidth=2.6; ctx.strokeStyle=C.limeHot;
+    ctx.beginPath(); ctx.arc(a.x,a.y+1,12.5,0,6.3); ctx.stroke();
+  }
+}
+// the length of rope between the knot and his hands — same rope, so same colour and twist
+function drawRope(){
+  const p=G.p, hx=p.x+p.w/2, hy=p.y+8;
+  ctx.lineCap="round";
+  ctx.strokeStyle=C.cable; ctx.lineWidth=4.6;
+  ctx.beginPath(); ctx.moveTo(p.ax,p.ay); ctx.lineTo(hx,hy); ctx.stroke();
+  ctx.strokeStyle="rgba(242,240,236,.16)"; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(p.ax-1,p.ay); ctx.lineTo(hx-1,hy); ctx.stroke();
+}
+function drawCoin(c){
+  const spin=Math.cos(G.t*3.2+c.x*.01), w=Math.abs(spin);
+  ctx.save(); ctx.translate(c.x,c.y);
+  ctx.fillStyle="rgba(11,11,13,.18)";
+  ctx.beginPath(); ctx.ellipse(0,13,10*w+2,3,0,0,6.3); ctx.fill();
+
+  const im = IMGS["coin"+Math.min(COIN_N-1, Math.round((1-w)*(COIN_N-1)))];
+  if(im){
+    // gold on wood is a much quieter read than the old lime token — a soft lime halo keeps
+    // pickups scannable at speed without repainting them
+    const rg=ctx.createRadialGradient(0,0,2,0,0,COIN_H*0.95);
+    rg.addColorStop(0,"rgba(214,243,47,.30)"); rg.addColorStop(1,"rgba(214,243,47,0)");
+    ctx.fillStyle=rg; ctx.fillRect(-COIN_H,-COIN_H,COIN_H*2,COIN_H*2);
+    // the narrowing is IN the frames — never squash on top of it or the coin spins twice
+    if(spin<0) ctx.scale(-1,1);          // back face: the feather flips, selling the rotation
+    const iw=COIN_H*(im.naturalWidth/im.naturalHeight);
+    ctx.drawImage(im,-iw/2,-COIN_H/2,iw,COIN_H);
+  } else {
+    ctx.fillStyle=C.limeHot;
+    ctx.beginPath(); ctx.ellipse(0,0,10*w+1.5,11,0,0,6.3); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawGoal(){
+  const g=GOAL, bob=Math.sin(G.t*2)*3;
+  // radial, and sized to the PACK not the hitbox — a flat rect behind a 1.25x-tall pack
+  // reads as a lime block someone forgot to delete
+  const gx=g.x+g.w/2, gy=g.y+bob+g.h-g.h*0.62, gr=g.h*1.15;
+  const gg=ctx.createRadialGradient(gx,gy,6,gx,gy,gr);
+  const a=(.30+Math.sin(G.t*4)*.14).toFixed(3);
+  gg.addColorStop(0,"rgba(214,243,47,"+a+")"); gg.addColorStop(1,"rgba(214,243,47,0)");
+  ctx.fillStyle=gg; ctx.fillRect(gx-gr,gy-gr,gr*2,gr*2);
+  if(IMGS.box || IMGS.pack0){
+    // open and waiting during the run; it seals shut around him in the outro
+    drawPack(g.x+g.w/2, g.y+bob+g.h, g.h*1.25, G.goalOpen, G.goalOpen<0.6);
+    return;
+  }
+  ctx.fillStyle=C.paper; ctx.fillRect(g.x,g.y+bob,g.w,g.h);
+  ctx.fillStyle="rgba(11,11,13,.10)"; ctx.fillRect(g.x,g.y+bob,g.w,14);
+  ctx.strokeStyle="rgba(11,11,13,.55)"; ctx.lineWidth=2.4;
+  ctx.strokeRect(g.x+9,g.y+bob+16,g.w-18,g.h-30);
+  ctx.fillStyle=C.limeHot; ctx.fillRect(g.x+9,g.y+bob+g.h-24,g.w-18,7);
+  ctx.fillStyle=C.void; ctx.font="bold 12px -apple-system,Arial"; ctx.textAlign="center";
+  ctx.fillText("BOX",g.x+g.w/2,g.y+bob+12);
+}
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h);
+  ctx.fill();
+}
+
+/* side-view action figure */
+function drawPlayer(){
+  const p=G.p;
+  if(p.hurt>0 && Math.floor(p.hurt*18)%2===0) return;
+  ctx.save();
+  ctx.translate(p.x+p.w/2, p.y+p.h);
+  ctx.scale(p.face,1);
+  if(p.dead>0) ctx.rotate(G.t*7);
+  else if(p.flip>0) ctx.rotate((1-p.flip)*Math.PI*2);   // one clean somersault
+  const air=!p.ground, run=p.ground&&Math.abs(p.vx)>16;
+  const c=run?Math.sin(p.anim):0;
+  ctx.rotate(clamp(p.vx/RUN_MAX,-1,1)*.13);
+
+  if(p.ground){ ctx.fillStyle="rgba(11,11,13,.20)";
+    ctx.beginPath(); ctx.ellipse(0,1,13,3.5,0,0,6.3); ctx.fill(); }
+
+  if(useSprite && spriteOK()){
+    const im = IMGS[pickFrame(p)] || IMGS.idle0;
+    // EVERY GPT sheet is drawn facing LEFT (the prompts ask for it, and the enemies rely on it).
+    // The vector fallback below faces right, so the outer scale(p.face) is correct for it and
+    // exactly backwards for the photos — flip once more here rather than fighting both.
+    ctx.scale(-1,1);
+    // the pivot lands exactly on the origin, which is the foot centre of the hitbox
+    ctx.drawImage(im, -CHAR.pivotX*KW, -CHAR.pivotY*KW, CHAR.w*KW, CHAR.h*KW);
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle=C.denimDark; leg(air?-6:c*7, air?-9:0);
+  ctx.fillStyle=C.tee;     rr(-7,-27,15,15,4);
+  ctx.fillStyle=C.teeDark; rr(2,-27,6,15,3);
+  ctx.fillStyle=C.denim;   leg(air?6:-c*7, air?-7:0);
+  ctx.fillStyle=C.skinDark; arm(air?-1.05:-c*.75);
+
+  const hy=-38;
+  ctx.fillStyle=C.skin;
+  ctx.beginPath(); ctx.ellipse(1,hy,8,8.6,0,0,6.3); ctx.fill();
+  ctx.fillStyle=C.skinDark;
+  ctx.beginPath(); ctx.arc(-2,hy+1,2.3,0,6.3); ctx.fill();
+  ctx.fillStyle=C.hair;
+  ctx.beginPath();
+  ctx.moveTo(-6.6,hy-1.5);
+  ctx.bezierCurveTo(-8.4,hy-11, 8.2,hy-13, 8.4,hy-2.6);
+  ctx.bezierCurveTo(6.6,hy-6.6, 1.4,hy-7.6, -2.4,hy-6.4);
+  ctx.bezierCurveTo(-4.6,hy-5.4,-6,hy-3.4,-6.6,hy-1.5);
+  ctx.closePath(); ctx.fill();
+  ctx.fillRect(-6.8,hy-1.6,2.4,4.6);
+  ctx.beginPath(); ctx.ellipse(5.4,hy+1.1,1.25,1.5,0,0,6.3); ctx.fill();
+  ctx.fillRect(3.2,hy-1.9,3.6,1.3);
+  ctx.beginPath(); ctx.ellipse(5.0,hy+6.0,2.4,2.0,0,0,6.3); ctx.fill();
+  ctx.fillRect(3.4,hy+3.4,3.4,1.2);
+  ctx.fillStyle=C.skinLit;
+  ctx.beginPath(); ctx.ellipse(8.0,hy+2.0,1.7,2.2,0,0,6.3); ctx.fill();
+
+  ctx.fillStyle=C.skin; arm(p.roped?-2.15:(air?.95:c*.75));
+  ctx.restore();
+
+  function leg(swing,lift){
+    ctx.save(); ctx.translate(0,-13); ctx.rotate(swing*.10);
+    rr(-3.6,0,7.2,13+lift,2.6);
+    const k=ctx.fillStyle; ctx.fillStyle=C.paper; rr(-5,12+lift,10,4.6,2); ctx.fillStyle=k;
+    ctx.restore();
+  }
+  function arm(rot){
+    ctx.save(); ctx.translate(1,-25); ctx.rotate(rot);
+    rr(-2.6,-1,5.2,13,2.4);
+    ctx.beginPath(); ctx.arc(0,13.4,3,0,6.3); ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* ============================ HUD ============================ */
+const elCoins=document.getElementById("coins"), elLives=document.getElementById("lives"),
+      elMcap=document.getElementById("mcap"), elString=document.getElementById("string");
+function syncHUD(){
+  elCoins.textContent=G.got;
+  elLives.innerHTML="";
+  for(let i=0;i<3;i++){
+    const d=document.createElement("div");
+    d.className="life"+(i<G.lives?"":" off");
+    elLives.appendChild(d);
+  }
+}
+setInterval(()=>{
+  const roped = G.mode==="play" && G.p.roped;
+  elString.classList.toggle("ready", G.mode==="play" && !roped && !!bestAnchor(G.p));
+  elString.textContent = roped ? "LET GO" : "STRING";
+}, 90);
+
+async function fetchMcap(){
+  try{
+    const r=await fetch("https://api.dexscreener.com/latest/dex/tokens/"+CA);
+    const d=await r.json();
+    const pr=(d.pairs||[]).slice().sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+    const mc=pr?.marketCap||pr?.fdv||0, ch=pr?.priceChange?.h24;
+    const s=mc>=1e6?"$"+(mc/1e6).toFixed(2)+"M":"$"+(mc/1e3).toFixed(1)+"K";
+    elMcap.innerHTML = s + (ch!=null
+      ? ' <span class="'+(ch>=0?"up":"dn")+'">'+(ch>=0?"▲":"▼")+Math.abs(ch).toFixed(0)+"%</span>" : "");
+    // BUY is the Uniswap swap route on Robinhood Chain (Chris's call 08-06) — do NOT overwrite
+    // it with pr.url; the DexScreener pair page is a chart, not a buy.
+  }catch(e){ elMcap.textContent="— N/A"; }
+}
+fetchMcap(); setInterval(fetchMcap,30000);
+
+/* ============================ FLOW ============================ */
+function reset(){
+  G.t=0; G.got=0; G.lives=3; G.cp=0; G.maxX=0;
+  G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
+  G.foes=foesSrc.map(mkFoe);
+  G.bits.length=0;
+  Object.assign(G.p,{x:60,y:GY-60,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
+                     roped:false,anchor:null,lastA:null,anim:0,hurt:0,dead:0,airJumps:AIR_JUMPS,
+                     flip:0,landT:0,grabCd:0});
+  G.cam.x=0; G.cam.y=G.p.y-VH*0.56; G.shk=0; G.flash=0; G.hitstop=0;
+  G.seq=0; G.packOpen=0; G.goalOpen=1; G.hidePlayer=false;
+  syncHUD();
+}
+// The title shot. Wide screens put the card on the right, so the pack goes left of centre and
+// sits vertically centred; phones stack the card underneath, so the pack rides high instead.
+// Must be re-run on resize — the framing depends on the aspect ratio.
+function frameTitle(){
+  const wide = VW > VH*1.45;
+  G.cam.x = PACK_X - VW*(wide?0.30:0.50);
+  G.cam.y = wide ? (GY-PACK_H/2)-VH*0.52 : (GY-PACK_H)-VH*0.09;
+}
+function start(){ ac(); document.getElementById("startScreen").classList.remove("on");
+  reset(); frameTitle(); G.mode="intro"; }
+function restart(){ document.getElementById("overScreen").classList.remove("on");
+  reset(); frameTitle(); G.mode="intro"; }
+document.getElementById("startBtn").addEventListener("click", start);
+document.getElementById("againBtn").addEventListener("click", restart);
+reset(); frameTitle(); G.mode="start";
+
+/* dev bridge — STRIP BEFORE DEPLOY */
+/* dev bridge stripped by deploy.sh */
+})();
+</script>
+</body>
+</html>
