@@ -1189,12 +1189,31 @@ setInterval(()=>{
   elString.textContent = roped ? "LET GO" : "STRING";
 }, 90);
 
+/* ⚠ Market cap is priceUsd x on-chain totalSupply — the same basis DexScreener's CHART plots.
+   Do NOT use their `marketCap`/`fdv` fields: on this token the chart and the fields disagree by
+   ~18% at the same instant because the fields net out the 148.8M burned tokens and the chart
+   doesn't. Chris's call 08-06: match the chart. The site's hero card does the same, and the
+   game HUD is visible inside the site's iframe, so the two must never disagree on one screen. */
+let TOTAL_SUPPLY = 0;
+(async function readSupply(){
+  try{
+    const r = await fetch("https://rpc.mainnet.chain.robinhood.com", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_call",
+                            params:[{to:CA,data:"0x18160ddd"},"latest"]})});
+    const j = await r.json();
+    if(j.result) TOTAL_SUPPLY = Number(BigInt(j.result) / 10n**18n);
+    fetchMcap();
+  }catch(e){ /* fall back to DexScreener's own number below */ }
+})();
+
 async function fetchMcap(){
   try{
     const r=await fetch("https://api.dexscreener.com/latest/dex/tokens/"+CA);
     const d=await r.json();
     const pr=(d.pairs||[]).slice().sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
-    const mc=pr?.marketCap||pr?.fdv||0, ch=pr?.priceChange?.h24;
+    const px=parseFloat(pr?.priceUsd||0), ch=pr?.priceChange?.h24;
+    const mc=(px&&TOTAL_SUPPLY)?px*TOTAL_SUPPLY:(pr?.marketCap||pr?.fdv||0);
     const s=mc>=1e6?"$"+(mc/1e6).toFixed(2)+"M":"$"+(mc/1e3).toFixed(1)+"K";
     elMcap.innerHTML = s + (ch!=null
       ? ' <span class="'+(ch>=0?"up":"dn")+'">'+(ch>=0?"▲":"▼")+Math.abs(ch).toFixed(0)+"%</span>" : "");
