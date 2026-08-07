@@ -91,8 +91,12 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
    and wordless it reads as "and the socials are here" without competing. */
 .ctas .xbtn{padding:0;width:44px;justify-content:center}
 .ctas .xbtn svg{width:17px;height:17px;display:block}
-.statcard{margin-top:26px;display:inline-flex;gap:0;align-items:stretch}
+.statcard{margin-top:26px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
 .statcard .paper{padding:11px 18px}
+#burnPct{font-size:26px;font-weight:900;letter-spacing:-.03em;line-height:1;
+  font-variant-numeric:tabular-nums;margin-top:5px;color:#C0392B}
+.burncard .sub{font-size:9.5px;font-weight:700;letter-spacing:.04em;opacity:.5;margin-top:3px;
+  font-variant-numeric:tabular-nums}
 #mcap{font-size:26px;font-weight:900;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;
   white-space:nowrap;margin-top:5px}
 #mcap .up{color:#2E7D32} #mcap .dn{color:#C0392B}
@@ -285,6 +289,11 @@ footer .sp{margin-left:auto}
         <div class="paper">
           <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">$VLAD market cap</div>
           <div id="mcap">loading…</div>
+        </div>
+        <div class="paper burncard">
+          <div class="kicker">🔥 Burned</div>
+          <div id="burnPct">—</div>
+          <div id="burnAbs" class="sub">reading the chain…</div>
         </div>
       </div>
     </div>
@@ -480,6 +489,46 @@ async function fetchMcap(){
   }catch(e){ elMcap.textContent = "— N/A"; }
 }
 fetchMcap(); setInterval(fetchMcap, 30000);
+
+/* ---------------- burn tracker, read straight off Robinhood Chain ----------------
+   No API, no key, no third party: two eth_calls against the public RPC. The endpoint sends
+   `access-control-allow-origin: *`, so the browser can hit it from this page directly.
+   Chain 4663. totalSupply() = 0x18160ddd, balanceOf(addr) = 0x70a08231 + 32-byte padded addr.
+   Every burned $VLAD sits at 0x…dEaD — the zero address holds nothing, checked on chain. */
+const RPC  = "https://rpc.mainnet.chain.robinhood.com";
+const DEAD = "000000000000000000000000000000000000dEaD";
+const elBurnPct = document.getElementById("burnPct"), elBurnAbs = document.getElementById("burnAbs");
+
+async function ethCall(data){
+  const r = await fetch(RPC, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({jsonrpc:"2.0", id:1, method:"eth_call",
+                          params:[{to:CA, data}, "latest"]})
+  });
+  const j = await r.json();
+  if(j.error) throw new Error(j.error.message);
+  return BigInt(j.result);
+}
+const fmt = n => n>=1e9 ? (n/1e9).toFixed(2)+"B" : n>=1e6 ? (n/1e6).toFixed(1)+"M"
+              : n>=1e3 ? (n/1e3).toFixed(0)+"K" : String(Math.round(n));
+
+async function fetchBurn(){
+  try{
+    const [total, dead] = await Promise.all([
+      ethCall("0x18160ddd"),
+      ethCall("0x70a08231000000000000000000000000" + DEAD),
+    ]);
+    if(total === 0n) throw new Error("zero supply");
+    // percentages in BigInt (x100 for two decimals) — Number() on 1e27 wei loses precision
+    const pct = Number(dead * 10000n / total) / 100;
+    elBurnPct.textContent = pct.toFixed(2) + "%";
+    elBurnAbs.textContent = fmt(Number(dead / 10n**18n)) + " / " + fmt(Number(total / 10n**18n)) + " $VLAD";
+  }catch(e){
+    elBurnPct.textContent = "—";
+    elBurnAbs.textContent = "chain unreachable";
+  }
+}
+fetchBurn(); setInterval(fetchBurn, 60000);
 
 /* ---------------- copy CA ---------------- */
 const copyBtn = document.getElementById("copyBtn");
