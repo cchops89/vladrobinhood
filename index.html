@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>$VLAD — UNBOXED</title>
-<meta name="description" content="$VLAD on Robinhood Chain. Six inches of collectible plastic. Play VLAD: UNBOXED.">
+<meta name="description" content="$VLAD on Robinhood Chain. Six and a half inches of collectible plastic. Play VLAD: UNBOXED.">
 <meta property="og:title" content="$VLAD — UNBOXED">
 <meta property="og:description" content="They keep underestimating us, Vlad. Robinhood Chain · Collector Series.">
 <meta property="og:image" content="assets/vladrobinhood_banner.jpeg">
@@ -225,17 +225,26 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
   transition:border-color .15s,color .15s}
 .playbar button:hover,.playbar a:hover{border-color:var(--lime-hot);color:var(--lime-hot)}
 
-/* ---------------- the figure / turnaround ---------------- */
-.turn{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px;align-items:end}
-.turn .cell{background:rgba(242,240,236,.045);border:1px solid rgba(242,240,236,.10);
-  padding:22px 12px 16px;text-align:center;position:relative;overflow:hidden}
-.turn .cell:before{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;
-  background:radial-gradient(ellipse at 50% 100%,rgba(194,230,25,.16),transparent 70%)}
-.turn img{height:min(34vh,300px);width:auto;margin:0 auto;position:relative;z-index:1;
-  filter:drop-shadow(0 16px 18px rgba(0,0,0,.5))}
-.turn .n{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;
-  color:var(--dim);margin-top:14px;position:relative;z-index:1}
-@media(max-width:640px){ .turn{grid-template-columns:1fr 1fr} .turn .cell:last-child{grid-column:span 2} }
+/* ---------------- the figure / character sheet ----------------
+   Replaced the three-up turnaround on 2026-08-07. The card brings its own cream field and
+   rounded border, so it does NOT go inside a .paper — stacking our frame on its frame reads as
+   a screenshot of a document rather than the document. Just a hairline and a drop, so it sits
+   on the dark page as an object with weight. */
+.spec{margin-top:44px}
+.spec img{display:block;width:100%;height:auto;border:1px solid rgba(242,240,236,.14);
+  box-shadow:0 26px 64px rgba(0,0,0,.55)}
+/* the hint is a SIBLING of .spec, not a child — inside the scroller it would scroll away with
+   the card, which is the one place it must not be */
+.swipe{display:none}
+/* A 16:9 card with printed spec text does not survive being squeezed to 390px — NAME/ROLE/HEIGHT
+   came out around 6px, i.e. decorative. Under 760 it scrolls sideways inside its own box at a
+   size you can actually read, which also keeps the page itself from overflowing. */
+@media(max-width:760px){
+  .spec{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .spec img{min-width:720px}
+  .swipe{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    font-weight:800;color:var(--dim);margin-top:12px}
+}
 
 /* ---------------- buy steps ---------------- */
 .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:44px}
@@ -312,7 +321,7 @@ footer .sp{margin-left:auto}
     <div>
       <div class="eyebrow">Robinhood Chain · Collector Series</div>
       <h1 class="title">$VLAD</h1>
-      <p class="tag">Six inches of collectible plastic, sealed on the CEO's desk.</p>
+      <p class="tag">Six and a half inches of collectible plastic, sealed on the CEO's desk.</p>
       <div class="ctas">
         <a class="buybtn" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood" target="_blank" rel="noopener">
           <img class="fea" src="assets/sprites/feather.png" alt="">BUY $VLAD
@@ -396,7 +405,7 @@ footer .sp{margin-left:auto}
 
       <div class="c-money rv">
         <img class="shot" src="assets/vladholdingmoney.jpeg" alt="The action figure holding a stack of cash" loading="lazy">
-        <div class="cap">The figure · six inches, fully articulated, holds a brick</div>
+        <div class="cap">The figure · 6.5 inches, fully articulated, holds a brick</div>
       </div>
 
       <div class="rv" style="grid-column:span 12">
@@ -443,15 +452,17 @@ footer .sp{margin-left:auto}
   <div class="wrap">
     <div class="rv">
       <div class="eyebrow">Collector Series · 1 of 1</div>
-      <h2 class="big">THE <span class="hl">TURNAROUND.</span></h2>
-      <p class="lede">Six inches. Fully articulated.</p>
+      <h2 class="big">THE <span class="hl">SPEC SHEET.</span></h2>
+      <p class="lede">Name: Robinhood. Role: Market Motivator. Accessory: Robinhood Boost,
+        included. Height: 6.5 inches of premium articulation.</p>
     </div>
 
-    <div class="turn rv">
-      <div class="cell"><img src="assets/site/front.png" alt="Front view"><div class="n">Front</div></div>
-      <div class="cell"><img src="assets/site/three_q.png" alt="Three-quarter view"><div class="n">Three-quarter</div></div>
-      <div class="cell"><img src="assets/site/side.png" alt="Side view"><div class="n">Side</div></div>
+    <div class="spec rv">
+      <img src="assets/site/vladinfo.webp" width="2360" height="1328"
+           alt="$VLAD action figure character sheet: close-up, 45-degree and full-body views, with
+                name, role, accessory, height and features listed alongside">
     </div>
+    <div class="swipe-wrap rv"><div class="swipe">swipe the card →</div></div>
   </div>
 </section>
 
