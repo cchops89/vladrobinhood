@@ -474,12 +474,24 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------------- live market cap (same source as the game) ---------------- */
 const elMcap = document.getElementById("mcap");
+/* ⚠ We compute the market cap ourselves: priceUsd x on-chain totalSupply.
+   Do NOT go back to DexScreener's `marketCap`/`fdv` fields. On this token DexScreener's chart
+   and its stat fields disagree by ~18% AT THE SAME INSTANT, because they use different supply
+   bases — verified against the chain:
+     chart  "Mcap" line  -> price x 1,000,000,000  (TOTAL supply)      = what Chris wants
+     MKT CAP / FDV fields-> price x   851,176,614  (total minus burn)
+   Chris's call 08-06: read what the chart reads. Deriving it from totalSupply() ourselves also
+   means it can't silently drift if DexScreener changes which basis it reports. */
+let TOTAL_SUPPLY = 0;      // filled by fetchBurn() from the chain
+
 async function fetchMcap(){
   try{
     const r = await fetch("https://api.dexscreener.com/latest/dex/tokens/"+CA);
     const d = await r.json();
     const pr = (d.pairs||[]).slice().sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
-    const mc = pr?.marketCap || pr?.fdv || 0, ch = pr?.priceChange?.h24;
+    const price = parseFloat(pr?.priceUsd || 0), ch = pr?.priceChange?.h24;
+    // fall back to DexScreener's own number only if the chain read hasn't landed yet
+    const mc = (price && TOTAL_SUPPLY) ? price * TOTAL_SUPPLY : (pr?.marketCap || pr?.fdv || 0);
     if(!mc){ elMcap.textContent = "— N/A"; return; }
     const s = mc>=1e9 ? "$"+(mc/1e9).toFixed(2)+"B"
             : mc>=1e6 ? "$"+(mc/1e6).toFixed(2)+"M"
@@ -523,6 +535,9 @@ async function fetchBurn(){
     const pct = Number(dead * 10000n / total) / 100;
     elBurnPct.textContent = pct.toFixed(2) + "%";
     elBurnAbs.textContent = fmt(Number(dead / 10n**18n)) + " / " + fmt(Number(total / 10n**18n)) + " $VLAD";
+    // the market cap is derived from this, so refresh it as soon as the supply lands
+    TOTAL_SUPPLY = Number(total / 10n**18n);
+    fetchMcap();
   }catch(e){
     elBurnPct.textContent = "—";
     elBurnAbs.textContent = "chain unreachable";
