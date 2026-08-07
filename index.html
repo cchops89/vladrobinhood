@@ -230,21 +230,82 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
    rounded border, so it does NOT go inside a .paper — stacking our frame on its frame reads as
    a screenshot of a document rather than the document. Just a hairline and a drop, so it sits
    on the dark page as an object with weight. */
-.spec{margin-top:44px}
+/* The PFP rides alongside the card at a fixed 260 rather than sharing a fraction of the row:
+   the card is the thing with printed text in it, so it gets every pixel that's left. At 260 the
+   sheet still lands around 10px on its spec labels, which is the floor for that type. */
+.spec{margin-top:44px;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;
+  align-items:start}
 .spec img{display:block;width:100%;height:auto;border:1px solid rgba(242,240,236,.14);
   box-shadow:0 26px 64px rgba(0,0,0,.55)}
 /* the hint is a SIBLING of .spec, not a child — inside the scroller it would scroll away with
    the card, which is the one place it must not be */
 .swipe{display:none}
 /* A 16:9 card with printed spec text does not survive being squeezed to 390px — NAME/ROLE/HEIGHT
-   came out around 6px, i.e. decorative. Under 760 it scrolls sideways inside its own box at a
+   came out around 6px, i.e. decorative. Under 900 it scrolls sideways inside its own box at a
    size you can actually read, which also keeps the page itself from overflowing. */
-@media(max-width:760px){
-  .spec{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .spec img{min-width:720px}
+@media(max-width:900px){
+  .spec{grid-template-columns:1fr;justify-items:center}
+  .specscroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .specscroll img{min-width:720px}
+  .pfptile{max-width:320px}
   .swipe{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
     font-weight:800;color:var(--dim);margin-top:12px}
 }
+
+/* ---------------- make your own: the reference kit ---------------- */
+.kit{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px;align-items:stretch}
+@media(max-width:760px){ .kit{grid-template-columns:1fr} }
+.kititem{background:rgba(242,240,236,.045);border:1px solid rgba(242,240,236,.10);
+  padding:14px 14px 16px;display:flex;flex-direction:column}
+/* Every tile's art sits in the SAME 5:4 box whatever the source aspect, so three different
+   shapes still line their names and buttons up. object-fit does the work: the 16:9 sheet is
+   `contain` (cropping a spec card hides the specs) and the square ones cover it. 5:4 rather
+   than square because a 16:9 sheet contained in a square is 44% empty box. */
+.kitart{aspect-ratio:5/4;background:rgba(11,11,13,.5);border:1px solid rgba(242,240,236,.07);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.kitart img{width:100%;height:100%;object-fit:cover;display:block}
+.kitart.wide img{object-fit:contain}
+.swatch{width:100%;height:100%;background:#CFF604}
+.kitname{font-weight:900;letter-spacing:-.01em;font-size:15px;margin-top:13px}
+.kitspec{font-size:10.5px;letter-spacing:.06em;color:var(--dim);font-weight:700;margin:4px 0 14px;
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.hexchip{font:inherit;font-family:var(--mono);letter-spacing:0;background:rgba(214,243,47,.12);
+  color:var(--lime-hot);border:1px solid rgba(214,243,47,.3);padding:2px 7px;cursor:pointer;
+  transition:background .15s}
+.hexchip:hover{background:rgba(214,243,47,.24)}
+.hexchip.done{background:var(--lime-hot);color:var(--void)}
+/* margin-top:auto pins every DOWNLOAD to the bottom of its tile. Without it the
+   background tile's row sits lower than the other two — its hex chip is taller than
+   plain text — and three buttons at three heights reads as a broken grid. */
+.dl{margin-top:auto;text-align:center;text-decoration:none;font-weight:900;letter-spacing:.12em;
+  font-size:11px;text-transform:uppercase;padding:11px 14px;border:2px solid rgba(242,240,236,.28);
+  transition:border-color .15s,color .15s,background .15s}
+.dl:hover{border-color:var(--lime-hot);color:var(--lime-hot)}
+
+/* ---------------- make your own: the prompt ---------------- */
+.promptkit{margin-top:22px;background:rgba(242,240,236,.045);
+  border:1px solid rgba(242,240,236,.10);padding:18px}
+.prombar{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.promlab b{display:block;font-size:15px;letter-spacing:-.01em}
+.promlab span{font-size:11px;color:var(--dim);font-weight:700;letter-spacing:.04em}
+.bigcopy{margin-left:auto;font:inherit;background:var(--lime-hot);color:var(--void);border:0;
+  font-weight:900;letter-spacing:.12em;font-size:12px;text-transform:uppercase;padding:12px 20px;
+  cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s}
+.bigcopy:hover{transform:translateY(-1px);box-shadow:0 5px 0 rgba(0,0,0,.4)}
+.bigcopy:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.bigcopy.done{background:var(--paper)}
+.promhint{font-size:12px;line-height:1.6;color:var(--dim);margin-top:12px;max-width:66ch}
+.promhint b{color:var(--paper)}
+.promdet{margin-top:14px;border-top:1px solid rgba(242,240,236,.10);padding-top:12px}
+.promdet summary{cursor:pointer;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  font-weight:800;color:var(--lime-hot);list-style:none;display:flex;align-items:center;gap:8px}
+.promdet summary::-webkit-details-marker{display:none}
+.promdet summary:after{content:"▾";font-size:11px;transition:transform .18s}
+.promdet[open] summary:after{transform:rotate(180deg)}
+.promdet pre{margin-top:12px;max-height:min(52vh,460px);overflow:auto;background:rgba(11,11,13,.55);
+  border:1px solid rgba(242,240,236,.08);padding:16px;font-family:var(--mono);font-size:11.5px;
+  line-height:1.65;color:rgba(242,240,236,.78);white-space:pre-wrap;word-break:break-word}
+@media(max-width:640px){ .bigcopy{margin-left:0;width:100%} }
 
 /* ---------------- buy steps ---------------- */
 .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:44px}
@@ -306,6 +367,7 @@ footer .sp{margin-left:auto}
       <a href="#lore">The Lore</a>
       <a href="#play">Play</a>
       <a href="#figure">The Figure</a>
+      <a href="#make">Make Your Own</a>
       <a href="#buy">How to Buy</a>
     </div>
     <a class="buybtn" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood" target="_blank" rel="noopener">
@@ -458,11 +520,132 @@ footer .sp{margin-left:auto}
     </div>
 
     <div class="spec rv">
-      <img src="assets/site/vladinfo.webp" width="2360" height="1328"
-           alt="$VLAD action figure character sheet: close-up, 45-degree and full-body views, with
-                name, role, accessory, height and features listed alongside">
+      <div class="specscroll">
+        <img src="assets/site/vladinfo.webp" width="2360" height="1328"
+             alt="$VLAD action figure character sheet: close-up, 45-degree and full-body views, with
+                  name, role, accessory, height and features listed alongside">
+      </div>
+      <img class="pfptile" src="assets/site/pfp.webp" width="1000" height="1000"
+           alt="The $VLAD profile picture: the action figure head-on against a lime background">
     </div>
     <div class="swipe-wrap rv"><div class="swipe">swipe the card →</div></div>
+  </div>
+</section>
+
+<!-- ============================ MAKE YOUR OWN ============================ -->
+<section id="make">
+  <div class="wrap">
+    <div class="rv">
+      <div class="eyebrow">Reference kit · free to use</div>
+      <h2 class="big">MAKE <span class="hl">YOUR OWN.</span></h2>
+      <p class="lede">Both official reference images, the background, and the exact prompt that
+        made the profile picture. Take them. Point your image model at them for any $VLAD content
+        you want to make — or drop your own face in as Image 1 and get yourself as the figure.</p>
+    </div>
+
+    <div class="kit rv">
+      <div class="kititem">
+        <div class="kitart wide"><img src="assets/site/vladinfo.webp" alt=""></div>
+        <div class="kitname">Character sheet</div>
+        <div class="kitspec">JPG · 3840 × 2160</div>
+        <a class="dl" href="assets/site/dl/vlad-character-sheet.jpg" download="vlad-character-sheet.jpg">Download ↓</a>
+      </div>
+      <div class="kititem">
+        <div class="kitart"><img src="assets/site/pfp.webp" alt=""></div>
+        <div class="kitname">Profile picture</div>
+        <div class="kitspec">JPG · 2048 × 2048</div>
+        <a class="dl" href="assets/site/dl/vlad-pfp.jpg" download="vlad-pfp.jpg">Download ↓</a>
+      </div>
+      <div class="kititem">
+        <div class="kitart"><div class="swatch" id="swatch"></div></div>
+        <div class="kitname">Background</div>
+        <div class="kitspec">PNG · 2048 × 2048 · <button class="hexchip" id="copyHex" title="Copy the hex">#CFF604</button></div>
+        <a class="dl" href="assets/site/dl/vlad-background.png" download="vlad-background.png">Download ↓</a>
+      </div>
+    </div>
+
+    <!-- The prompt is long enough that showing it by default would bury the buttons, and nobody
+         reads it before they copy it anyway. Collapsed, with the copy action OUTSIDE the
+         <details> so it works either way — inside the <summary> a click would toggle instead. -->
+    <div class="promptkit rv">
+      <div class="prombar">
+        <div class="promlab">
+          <b>The prompt</b>
+          <span id="promLen">the one that made the picture above</span>
+        </div>
+        <button class="bigcopy" id="copyPrompt">Copy prompt</button>
+      </div>
+      <p class="promhint">
+        <b>Image 1</b> is the face you want turned into a figure — yours, or the profile picture
+        above. <b>Image 2</b> is the lime background. Both are in the kit.
+      </p>
+      <details class="promdet">
+        <summary>Read it first</summary>
+        <pre id="promptText">Create a high-quality X profile picture of the person shown in @[Image 1](image_1) as a premium collectible ACTION FIGURE.
+@[Image 1](image_1) is the exclusive reference for the subject’s identity.
+Preserve the person’s recognizable features:
+- exact facial identity
+- face shape
+- hairstyle and hair color
+- eyebrows
+- eyes
+- nose
+- mouth
+- facial hair, if present
+- skin tone
+- expression
+- distinctive accessories or clothing elements visible in the reference
+The final subject must clearly remain the same person from @[Image 1](image_1).
+Transform the subject into a premium physical collectible action figure made from painted PVC and ABS plastic.
+ACTION FIGURE MATERIALS AND DETAILS:
+- highly detailed sculpted plastic head
+- smooth painted plastic skin with a subtle satin sheen
+- slightly artificial toy-like facial surface
+- realistic hand-painted facial details
+- fully sculpted plastic hair with visible engraved strands
+- clean injection-molded construction
+- subtle plastic highlights and reflections
+- premium articulated action-figure craftsmanship
+- realistic miniature fabric clothing
+- polished high-end collectible toy finish
+COMPOSITION:
+- perfectly front-facing portrait
+- direct eye contact with the camera
+- centered and symmetrical
+- close-up framing showing the head, neck, and upper shoulders
+- entire hairstyle visible
+- eye-level camera angle
+- square composition suitable for an X profile picture
+LIGHTING:
+- clean professional studio lighting
+- soft frontal illumination
+- subtle highlights on the painted plastic surface
+- minimal shadows
+- extremely sharp facial details
+- premium macro product-photography quality
+BACKGROUND:
+Use a clean solid studio background in the exact color #cff604 @[Image 2](image_2).
+The background should be bold, flat, uniform, and visually striking.
+No scenery.
+No text.
+No logos.
+No additional objects.
+IMPORTANT:
+This must look like a real physical PVC and ABS action figure photographed in a professional studio, not a real human portrait.
+Do not create a generic face.
+Do not change the person’s identity.
+Do not make the subject resemble another person.
+Do not alter the hairstyle or defining facial traits.
+Do not render the skin as natural human skin.
+Do not create a resin statue.
+Do not create a rigid sculpture.
+Do not use a flat cartoon, anime, illustration, or video-game character style.
+The final result must be immediately recognizable as the person from @[Image 1](image_1), faithfully recreated as a premium articulated plastic action figure.</pre>
+      </details>
+    </div>
+
+    <p class="note rv">Made one? Post it and tag
+      <a href="https://x.com/VladRobinhood" target="_blank" rel="noopener">@VladRobinhood</a>.</p>
   </div>
 </section>
 
@@ -624,6 +807,43 @@ copyBtn.addEventListener("click", async ()=>{
     + ' stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>';
   setTimeout(()=>{ copyBtn.classList.remove("done"); copyBtn.innerHTML = COPY_ICON; }, 1600);
 });
+
+/* ---------------- make your own: copy the prompt / the hex ----------------
+   One clipboard helper for both. The async API is refused on file:// and by older Safari, so
+   every path keeps the throwaway-textarea fallback the CA button already relies on. */
+async function toClipboard(text){
+  try{ await navigator.clipboard.writeText(text); return; }
+  catch(e){
+    const t = document.createElement("textarea");
+    t.value = text; t.style.position="fixed"; t.style.opacity="0";
+    document.body.appendChild(t); t.select();
+    try{ document.execCommand("copy"); }catch(_){}
+    t.remove();
+  }
+}
+function flash(btn, label, ms=1800){
+  const was = btn.textContent;
+  btn.textContent = label; btn.classList.add("done");
+  setTimeout(()=>{ btn.textContent = was; btn.classList.remove("done"); }, ms);
+}
+
+const promptEl = document.getElementById("promptText");
+if(promptEl){
+  // The character count comes off the DOM, not a hard-coded number — the prompt will get edited
+  // and a stale count is worse than no count.
+  const txt = () => promptEl.textContent.trim();
+  document.getElementById("promLen").textContent =
+    txt().length.toLocaleString() + " characters · paste into your image model";
+  const cp = document.getElementById("copyPrompt");
+  cp.addEventListener("click", async ()=>{ await toClipboard(txt()); flash(cp, "Copied ✓"); });
+}
+const hexBtn = document.getElementById("copyHex");
+if(hexBtn){
+  // stash it: flash() rewrites the label, so reading textContent on a second click mid-flash
+  // would copy the word "Copied"
+  const HEX = hexBtn.textContent.trim();
+  hexBtn.addEventListener("click", async ()=>{ await toClipboard(HEX); flash(hexBtn, "Copied", 1200); });
+}
 
 /* ---------------- scroll reveal ---------------- */
 const io = new IntersectionObserver((es)=>{
