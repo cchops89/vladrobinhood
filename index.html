@@ -52,6 +52,25 @@ h2.big{font-size:clamp(34px,6vw,74px);font-weight:900;letter-spacing:-.04em;line
 .lede{font-size:clamp(14px,1.5vw,17px);line-height:1.55;color:var(--dim);max-width:52ch;margin-top:14px}
 section{position:relative;padding:clamp(70px,11vw,140px) 0}
 
+/* ---------------- disclaimer strip (short form; full one lives in the footer) ---------------- */
+.discbar{background:rgba(214,243,47,.07);border-bottom:1px solid rgba(214,243,47,.16);
+  font-size:10.5px;line-height:1.5;letter-spacing:.05em;font-weight:700;color:rgba(242,240,236,.60)}
+.discbar .in{max-width:1180px;margin:0 auto;padding:9px 22px;display:flex;align-items:center;
+  justify-content:center;gap:10px;text-align:center;flex-wrap:wrap}
+.discbar b{color:var(--lime);font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.discbar a{color:var(--lime-hot);text-decoration:none;border-bottom:1px solid rgba(214,243,47,.4);
+  white-space:nowrap;flex:none}
+.discbar a:hover{border-bottom-color:var(--lime-hot)}
+.discbar .m{display:none}
+/* Phone gets its own copy, not a truncated version of the desktop line — the full sentence
+   wrapped to three lines and read as a banner, not a footnote. */
+@media(max-width:760px){
+  .discbar .in{padding:7px 16px;gap:8px;font-size:10px}
+  .discbar b{letter-spacing:.1em}
+  .discbar .d{display:none}
+  .discbar .m{display:inline}
+}
+
 /* ---------------- nav ---------------- */
 nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);
   background:rgba(11,11,13,.74);border-bottom:1px solid rgba(242,240,236,.08)}
@@ -106,6 +125,15 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
   min-height:min(74vh,660px)}
 .heroart .fig{height:min(74vh,660px);width:auto;filter:drop-shadow(0 34px 34px rgba(0,0,0,.62));
   position:relative;z-index:2}
+/* The slow turn. tools/build-hero-cycle.py normalises all five frames onto ONE canvas — same
+   pixel size, feet on a shared baseline, body on a shared axis — which is the whole reason the
+   overlays can sit at left:0/top:0 and cross-fade with nothing but opacity. The FIRST img stays
+   in flow and sizes the stack (opacity doesn't affect layout, so it keeps its box at 0), the
+   other four are absolute on top of it. */
+.figstack{position:relative;z-index:2;line-height:0}
+.figstack .fig{opacity:0;transition:opacity 1.4s ease-in-out}
+.figstack .fig.on{opacity:1}
+.figstack .fig:not(:first-child){position:absolute;left:0;top:0}
 @media(max-width:900px){
   .heroart{min-height:0;margin-top:26px}
   .heroart .fig{height:min(52vh,440px)}
@@ -235,7 +263,9 @@ footer a{text-decoration:none;transition:color .15s}
 footer a:hover{color:var(--lime-hot)}
 footer .sp{margin-left:auto}
 .disc{max-width:1180px;margin:22px auto 0;padding:0 22px;font-size:10px;line-height:1.6;
-  color:rgba(242,240,236,.30);font-weight:600}
+  color:rgba(242,240,236,.30);font-weight:600;scroll-margin-top:120px;transition:color .4s}
+/* arriving from the top strip's "Full disclaimer ↓" — surface it instead of dumping you on grey 30% text */
+.disc:target{color:rgba(242,240,236,.72)}
 
 /* ---------------- scroll reveal ---------------- */
 .rv{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),
@@ -249,6 +279,16 @@ footer .sp{margin-left:auto}
 </style>
 </head>
 <body>
+
+<!-- ==================== DISCLAIMER STRIP (short form) ==================== -->
+<div class="discbar">
+  <div class="in">
+    <span><b>Unofficial fan project</b><span class="d"> · not affiliated with Robinhood Markets,
+      Inc. or Vlad Tenev · a memecoin and a game, not an investment</span><span class="m"> · no
+      Robinhood affiliation</span></span>
+    <a href="#disclaimer">Full disclaimer ↓</a>
+  </div>
+</div>
 
 <nav>
   <div class="row">
@@ -300,7 +340,16 @@ footer .sp{margin-left:auto}
 
     <div class="heroart">
       <div class="glow"></div>
-      <img class="fig" id="heroFig" src="assets/site/three_q.png" alt="The $VLAD action figure" data-par="0.06">
+      <!-- Markup order IS the display order, and it is a rotation, not a shuffle: near-side ->
+           side -> three-quarter -> front. The cycler ping-pongs it so the turn reverses at the
+           ends instead of snapping from front back to side. -->
+      <div class="figstack" id="heroFig" data-par="0.06">
+        <img class="fig" src="assets/site/hero2.webp" alt="The $VLAD action figure">
+        <img class="fig" src="assets/site/hero1.webp" alt="" aria-hidden="true">
+        <img class="fig on" data-start src="assets/site/hero5.webp" alt="" aria-hidden="true">
+        <img class="fig" src="assets/site/hero4.webp" alt="" aria-hidden="true">
+        <img class="fig" src="assets/site/hero3.webp" alt="" aria-hidden="true">
+      </div>
     </div>
   </div>
 </section>
@@ -459,7 +508,7 @@ footer .sp{margin-left:auto}
     <a href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood" target="_blank" rel="noopener">Uniswap ↗</a>
     <a class="sp" href="https://x.com/thejpegjunkie" target="_blank" rel="noopener">made by @thejpegjunkie</a>
   </div>
-  <div class="disc">
+  <div class="disc" id="disclaimer">
     $VLAD is an unofficial community memecoin and a fan game. Not affiliated with, endorsed by, or
     connected to Robinhood Markets, Inc. or Vlad Tenev. No utility, no roadmap, no promises — buy
     it because it's funny, not because it's an investment.
@@ -570,6 +619,26 @@ const io = new IntersectionObserver((es)=>{
   for(const e of es) if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
 }, {rootMargin:"0px 0px -12% 0px", threshold:.08});
 document.querySelectorAll(".rv").forEach((el,i)=>{ el.style.transitionDelay = (i%3)*70+"ms"; io.observe(el); });
+
+/* ---------------- the hero turn ----------------
+   Five normalised frames stacked in the hero, cross-faded on a slow ping-pong so the figure
+   reads as turning on the spot. Ping-pong rather than a loop because the last frame is the
+   FRONT view and the first is the side — wrapping straight round is a jump cut, and at this
+   fade length a jump cut is the one thing you'd notice. */
+const figs = [...document.querySelectorAll(".figstack .fig")];
+if(!reduce && figs.length > 1){
+  // Start on [data-start] — the three-quarter — not on figs[0]. figs[0] is one end of the
+  // rotation (the side profile) and the first thing anyone sees should be his face, not his ear.
+  // It stays first in the DOM because it's the in-flow frame that sizes the stack.
+  let fi = Math.max(0, figs.findIndex(f=>f.hasAttribute("data-start"))), dir = 1;
+  setInterval(()=>{
+    if(document.hidden) return;               // don't burn the turn while the tab is in the background
+    figs[fi].classList.remove("on");
+    if(fi + dir >= figs.length || fi + dir < 0) dir = -dir;
+    fi += dir;
+    figs[fi].classList.add("on");
+  }, 4600);
+}
 
 /* ---------------- parallax + the run strip ----------------
    One rAF-throttled scroll handler drives everything that moves. Anything with data-par
