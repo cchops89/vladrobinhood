@@ -116,6 +116,20 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
   font-variant-numeric:tabular-nums;margin-top:5px;color:#C0392B}
 .burncard .sub{font-size:9.5px;font-weight:700;letter-spacing:.04em;opacity:.5;margin-top:3px;
   font-variant-numeric:tabular-nums}
+/* The burn card is a link now. It keeps .paper's look exactly — a burn tracker that suddenly
+   styles itself as a button competes with BUY, which is the only button in the hero that should
+   read as one. The only tell is the Verify chip and a lift on hover. */
+/* ⚠ color:var(--ink), NOT color:inherit. `a.burncard` outranks `.paper`, so inherit pulled the
+   colour off the page body — cream — and painted cream text on the cream card. "Burned" and the
+   150.1M sub line went completely invisible while the DOM still measured them at full size, so
+   nothing but a screenshot could catch it. */
+a.burncard{text-decoration:none;color:var(--ink);display:block;
+  transition:transform .1s,box-shadow .1s}
+a.burncard:hover{transform:translateY(-2px);box-shadow:0 7px 0 rgba(0,0,0,.32)}
+a.burncard:active{transform:translateY(1px);box-shadow:0 2px 0 rgba(0,0,0,.32)}
+.burncard .verify{font-size:8.5px;letter-spacing:.14em;padding:2px 5px;margin-left:5px;
+  background:rgba(11,11,13,.10);border:1px solid rgba(11,11,13,.16);white-space:nowrap}
+a.burncard:hover .verify{background:var(--lime-hot);border-color:var(--lime-hot)}
 #mcap{font-size:26px;font-weight:900;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;
   white-space:nowrap;margin-top:5px}
 #mcap .up{color:#2E7D32} #mcap .dn{color:#C0392B}
@@ -401,11 +415,17 @@ footer .sp{margin-left:auto}
           <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">$VLAD market cap</div>
           <div id="mcap">loading…</div>
         </div>
-        <div class="paper burncard">
-          <div class="kicker">🔥 Burned</div>
+        <!-- The burn card is a link to the burn wallet on Blockscout (community ask 08-07:
+             "could be nice if people wanna verify"). It points at the dead address's TOKEN tab,
+             not the token's holders list — the ask was the wallet, and this page states the
+             balance outright instead of making you find one row in a distribution table. -->
+        <a class="paper burncard" id="burnLink" target="_blank" rel="noopener"
+           href="https://robinhoodchain.blockscout.com/address/0x000000000000000000000000000000000000dEaD?tab=tokens"
+           title="Verify the burn on Blockscout">
+          <div class="kicker">🔥 Burned <span class="verify">Verify ↗</span></div>
           <div id="burnPct">—</div>
           <div id="burnAbs" class="sub">reading the chain…</div>
-        </div>
+        </a>
       </div>
     </div>
 
