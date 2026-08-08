@@ -164,6 +164,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     </div>
     <div class="body" style="font-size:12px;opacity:.66;margin-top:8px">
       Jump twice for a <b>double jump</b>. The <b>pull-string</b> grabs <b>cable loops</b> on its own.
+      Stomp desk junk to <b>hogtie</b> it — a tied toy is a springboard.
     </div>
     <div class="actpick" id="pickStart"></div>
     <button class="btn" id="startBtn">CLIMB OUT</button>
@@ -318,7 +319,8 @@ const A1_COINS = [[360,GY-140],[640,GY-130],[830,GY-190],[1180,GY-160],[1260,GY-
   [1540,GY-120],[1700,GY-170],[2320,GY-60],[2430,GY-106],[2540,GY-152],[2670,GY-106],
   [2790,GY-60],[2900,GY-114],[3020,GY-170],[3140,GY-120],[3260,GY-66],
   [3700,GY-190],[3960,GY-90],[4200,GY-146],[4720,GY-120],[4960,GY-200],
-  [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168]];
+  [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168],
+  [6420,GY-290]]   // HOGTIE gate: only reachable off the tied charger;
 // Desk junk with opinions. (t, spawn x, surface y, patrol left, patrol right)
 //   walker   — paces its stretch of desk, turns at the bounds. Stompable.
 //   charger  — sits still until you're close, telegraphs, then runs you down. Stompable.
@@ -347,6 +349,21 @@ const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18],
 const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"],
                   clip:["clip"], knockoff:["knockoff"]};
 const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104;
+/* HOGTIE — the pull-string's second verb, and the other half of the Toy Story mechanic.
+   A stomp no longer deletes an enemy for half a second; it TIES it. A tied toy is inert,
+   standable, and wound up: jumping off one throws you 940 instead of 700.
+
+   ⚠ Why a springboard and not just "a standable solid", which is how the design review
+   specified it: a tied bundle sits on the floor, so its standing height is ~16 units above
+   the floor's. A 198-unit jump already clears that. As pure geometry a tie can gate exactly
+   nothing — the traversal has to come from the LAUNCH, not from the platform. -940 buys
+   about +100 units of reach over plain ground, which is a real gate, and "the wind-up toy
+   you tied up flings you" is a better read than "you stand on the paperclip".
+
+   ⚠ And it cannot need a button. There is no STRING button on mobile — it was removed on
+   08-06 and the rope grabs itself. Tying has to fall out of an input the player already
+   has, so it falls out of the stomp. */
+const TIE_TIME=5.5, TIE_WARN=1.3, TIE_JUMP=-940, TIE_H=16;
 const FOE_CLIP=150, FOE_HUNT=94, HUNT_SEE=460;
 
 /* ---------------- ACT 2 — THE CABLE RUN ---------------- */
@@ -394,7 +411,8 @@ const A2_COINS = [[300,GY-110],[560,GY-160],[790,GY-120],
   [3660,GY-120],[3820,GY-120],
   [4050,GY-130],[4280,GY-184],[4510,GY-130],[4730,GY-210],
   [4980,GY-90],[5210,GY-170],[5510,GY-236],[5540,GY-190],[5730,GY-156],
-  [6040,GY-100],[6350,GY-140],[6570,GY-210],[6850,GY-110]];
+  [6040,GY-100],[6350,GY-140],[6570,GY-210],[6850,GY-110],
+  [6880,GY-300]]   // HOGTIE gate: only off the tied charger at 6300..6860;
 const A2_FOES = [
   F("clip",    620,GY-18,  200, 900),
   F("clip",   1760,GY-18, 1560,2160),
@@ -452,7 +470,9 @@ const A3_COINS = [[360,GY-150],[610,GY-210],[830,GY-130],
   [3680,GY-95],[3840,GY-85],
   [4055,GY-130],[4285,GY-200],[4505,GY-270],[4725,GY-340],[4780,GY-260],
   [5060,GY-80],[5200,GY-85],[5460,GY-200],[5810,GY-260],[6030,GY-190],
-  [6300,GY-80],[6440,GY-85],[6690,GY-150],[6930,GY-220],[7150,GY-150]];
+  [6300,GY-80],[6440,GY-85],[6690,GY-150],[6930,GY-220],[7150,GY-150],
+  [1090,GY-300]]   // HOGTIE gate: hangs over the 440 chasm ABOVE the rope line — spring off
+                   // the tied knockoff, take it mid-air, drop onto the anchor at 1080;
 const A3_FOES = [
   F("knockoff", 600,GY-40,  180, 920),
   F("walker",  1800,GY-30, 1560,2200),
@@ -490,6 +510,12 @@ const ACTS = [
 // live bindings — reassigned wholesale by loadAct(), read everywhere else
 let ACT = 0, solids = [], anchors = [], coinsSrc = [], foesSrc = [], zones = [];
 let checkpoints = [], GOAL = ACTS[0].goal, LEVEL_END = ACTS[0].end, THEME = ACTS[0].theme;
+/* Tied enemies are real collision, so the physics reads WORLD (geometry + whatever is
+   currently hogtied) while everything else — drawing, the level tests, stepPlatforms —
+   still reads `solids`, which stays exactly the authored level. */
+let tiedSolids = [], WORLD = [];
+function rebuildWorld(){ WORLD = tiedSolids.length ? solids.concat(tiedSolids) : solids; }
+function clearTies(){ tiedSolids.length=0; rebuildWorld(); }
 function loadAct(i){
   // NB: not clamp() — that's a const further down and this runs at module init (TDZ).
   ACT = i<0 ? 0 : i>=ACTS.length ? ACTS.length-1 : i;
@@ -503,6 +529,7 @@ function loadAct(i){
   });
   anchors=a.anchors; coinsSrc=a.coins.map(([x,y])=>({x,y})); foesSrc=a.foes; zones=a.zones;
   checkpoints=a.checkpoints; GOAL=a.goal; LEVEL_END=a.end; THEME=a.theme;
+  clearTies();
 }
 loadAct(0);
 
@@ -626,7 +653,7 @@ const G = {
   mode:"start", t:0,
   p:{x:60,y:GY-60,px:60,py:GY-60,w:20,h:34,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
      roped:false,anchor:null,lastA:null,ax:0,ay:0,ropeLen:0,anim:0,hurt:0,dead:0,
-     airJumps:0,flip:0,landT:0,grabCd:0,plat:null},
+     airJumps:0,flip:0,landT:0,grabCd:0,plat:null,lastPlat:null,spring:0},
   cam:{x:0,y:0}, coins:[], bits:[], foes:[],
   got:0, lives:3, cp:0, maxX:0, shk:0, flash:0, hitstop:0,
   seq:0, packOpen:0, goalOpen:1, hidePlayer:false, carded:false, fromAct:0,
@@ -671,6 +698,8 @@ const SFX = {
   seal(){ tone(420,180,.16,"square",.07); noise(.08,.05,900,.06); },
   tell(){ tone(150,240,.12,"sawtooth",.05); },
   creak(){ tone(210,150,.18,"triangle",.05); noise(.1,.03,600); },
+  tie(){ noise(.14,.05,2600); tone(1400,600,.09,"triangle",.035); },
+  sproing(){ tone(300,1500,.16,"triangle",.09); tone(600,2100,.12,"square",.04,.03); },
   fan(){ noise(.3,.02,240); },
 };
 
@@ -766,13 +795,16 @@ function segBox(x0,y0,x1,y1,cx,cy,hw,hh){
 function moveAxis(p,dx,dy){
   if(dx){
     p.x += dx;
-    for(const s of solids){ if(s.gone || !hits(p,s)) continue;
+    for(const s of WORLD){ if(s.gone || !hits(p,s)) continue;
       p.x = dx>0 ? s.x-p.w : s.x+s.w; p.vx=0; }
   }
   if(dy){
     p.y += dy; p.ground=false;
-    for(const s of solids){ if(s.gone || !hits(p,s)) continue;
-      if(dy>0){ p.y=s.y-p.h; p.ground=true; p.plat=s; touchdown(s); } else p.y=s.y+s.h;
+    for(const s of WORLD){ if(s.gone || !hits(p,s)) continue;
+      if(dy>0){ p.y=s.y-p.h; p.ground=true; p.plat=s; touchdown(s);
+                // re-armed every frame you rest on it, so coyote-time jumps still spring
+                if(s.t==="tied") p.spring=0.14; }
+      else p.y=s.y+s.h;
       p.vy=0; }
   }
 }
@@ -830,7 +862,7 @@ function bestAnchor(p){
 // How far under your feet the next standable surface is. 1e9 means nothing at all is down there.
 function groundBelow(p){
   const cx=p.x+p.w/2, feet=p.y+p.h; let best=1e9;
-  for(const s of solids){
+  for(const s of WORLD){
     if(s.gone || cx<s.x || cx>s.x+s.w || s.y<feet-2) continue;
     best=Math.min(best, s.y-feet);
   }
@@ -925,10 +957,10 @@ function enterAct(){
   const p=G.p;
   markUnlocked(ACT);
   G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
-  G.foes=foesSrc.map(mkFoe);
+  G.foes=foesSrc.map(mkFoe); clearTies();
   G.cp=0; G.maxX=0; G.goalOpen=1;
   Object.assign(p,{x:checkpoints[0],y:GY-90,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
-                   roped:false,anchor:null,lastA:null,plat:null,hurt:0,dead:0,
+                   roped:false,anchor:null,lastA:null,plat:null,lastPlat:null,spring:0,hurt:0,dead:0,
                    airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
   G.cam.x=p.x-VW*0.38; G.cam.y=p.y-VH*0.56;
   syncHUD();
@@ -968,6 +1000,7 @@ function update(dt){
   // the delta it just travelled. Do it after the physics instead and a rising brick punches
   // through your feet before the collision pass ever sees it.
   stepPlatforms(dt);
+  p.lastPlat = p.plat;
   if(p.plat && p.ground && !p.plat.gone && p.plat.mv){ p.x += p.plat.ddx; p.y += p.plat.ddy; }
   p.plat = null;
 
@@ -1019,7 +1052,7 @@ function update(dt){
     if(Math.abs(p.vx)>150 && Math.random()<0.22) SFX.swing();
     p.ground=false; p.coyote=0;
     // don't let the swing arc pass through geometry
-    for(const s of solids){
+    for(const s of WORLD){
       if(s.gone || !hits(p,s)) continue;
       if(p.vy>0 && (p.y+p.h)-s.y < 22){ p.y=s.y-p.h; p.vy=0; p.ground=true; p.roped=false;
                                         p.plat=s; touchdown(s); }
@@ -1041,9 +1074,14 @@ function update(dt){
     p.coyote = p.ground ? COYOTE : Math.max(0,p.coyote-dt);
     if(p.ground) p.airJumps = AIR_JUMPS;
     if(jumpEdge) p.buffer=BUFFER; else p.buffer=Math.max(0,p.buffer-dt);
+    p.spring = Math.max(0, p.spring - dt);
     if(p.buffer>0 && p.coyote>0){
-      p.vy=JUMP_V; p.buffer=0; p.coyote=0; p.ground=false;
-      burst(p.x+p.w/2,p.y+p.h,5,C.paper); SFX.jump();
+      const sprung = p.spring>0;        // launching off something you hogtied
+      p.vy = sprung?TIE_JUMP:JUMP_V; p.buffer=0; p.coyote=0; p.ground=false;
+      if(sprung){
+        p.spring=0; G.shk=8;
+        burst(p.x+p.w/2,p.y+p.h,14,C.limeHot); SFX.sproing();
+      } else { burst(p.x+p.w/2,p.y+p.h,5,C.paper); SFX.jump(); }
     } else if(p.buffer>0 && p.airJumps>0){
       // double jump: SET the velocity rather than add, so a mistimed second jump
       // while still rising can never stack into a super-jump
@@ -1105,12 +1143,17 @@ function mkFoe(s){
   const [w,h]=FOE_BOX[s.t];
   return {t:s.t, x:s.x, y:s.t==="candle"?s.y:s.y, w, h:s.t==="candle"?0:h,
           full:h, base:s.y, a:s.a, b:s.b, dir:-1, anim:0, state:"idle", timer:0,
-          phase:s.x*0.01, dead:0, hop:0};
+          phase:s.x*0.01, dead:0, hop:0, tied:0, tie:null};
 }
 function stepFoes(dt){
   const p=G.p, pc=p.x+p.w/2;
   for(const f of G.foes){
     if(f.dead>0){ f.dead-=dt; continue; }
+    if(f.tied>0){                       // hogtied: no AI, no contact damage, just a platform
+      f.tied-=dt; f.anim+=dt*2;
+      if(f.tied<=0) untieFoe(f);
+      continue;
+    }
 
     if(f.t==="walker"){
       f.x += f.dir*FOE_WALK*dt; f.anim += dt*7;
@@ -1163,11 +1206,32 @@ function stepFoes(dt){
     // "were you above it LAST frame", not "are you in its top 60% now" — at 2300 gravity a
     // fast fall clears a 30-unit body inside one frame and the depth test reads as a side hit
     if(f.t!=="candle" && p.vy>60 && (p.py+p.h) <= f.y+10){
-      f.dead=0.5; p.vy=STOMP_V; p.airJumps=AIR_JUMPS; p.buffer=0;
+      tieFoe(f); p.vy=STOMP_V; p.airJumps=AIR_JUMPS; p.buffer=0;
       G.hitstop=0.06; G.shk=10;
-      burst(f.x+f.w/2,f.y,12,C.limeHot); SFX.stomp();
+      burst(f.x+f.w/2,f.y,12,C.limeHot); SFX.stomp(); SFX.tie();
     } else loseLife();
   }
+}
+
+/* A stomp ties instead of deleting. The bundle is a real solid from this frame on. */
+function tieFoe(f){
+  f.tied = TIE_TIME; f.state="tied"; f.timer=0;
+  f.tie = {x:f.x-3, y:f.y+f.h-TIE_H, w:f.w+6, h:TIE_H, t:"tied", foe:f};
+  tiedSolids.push(f.tie); rebuildWorld();
+}
+function untieFoe(f){
+  const p=G.p, i=tiedSolids.indexOf(f.tie);
+  if(i>=0) tiedSolids.splice(i,1);
+  // ⚠ if he is standing on it when it works loose, BUCK HIM OFF with i-frames. Otherwise the
+  // frame it becomes hostile again is a frame he is overlapping it, and it is a free kill he
+  // could not have seen coming.
+  if(p.plat===f.tie || p.lastPlat===f.tie){
+    p.vy=-320; p.ground=false; p.hurt=Math.max(p.hurt,0.75); p.airJumps=AIR_JUMPS;
+  }
+  f.tie=null; f.tied=0; f.state="idle"; f.timer=0;
+  f.dir = (p.x+p.w/2) < (f.x+f.w/2) ? 1 : -1;   // it stumbles away, not straight into you
+  burst(f.x+f.w/2, f.y+f.h, 8, C.paper); SFX.miss();
+  rebuildWorld();
 }
 
 function burst(x,y,n,col){
@@ -1191,7 +1255,7 @@ function respawn(){
   if(G.lives<=0){ endRun(false); return; }
   p.x=checkpoints[G.cp]; p.y=GY-90; p.vx=0; p.vy=0; p.dead=0; p.hurt=1.1; p.roped=false;
   p.airJumps=AIR_JUMPS; p.flip=0; p.grabCd=0; p.lastA=null; p.anchor=null; p.plat=null;
-  G.foes=foesSrc.map(mkFoe);      // the desk resets with you
+  G.foes=foesSrc.map(mkFoe); clearTies();   // the desk, and everything you tied, resets with you
   // ...and so do the card stacks. Dying on the third one of a climb and coming back to find
   // the first two still missing is a checkpoint you cannot leave.
   for(const s of solids) if(s.cr){ s.gone=false; s.crT=0; s.reT=0; }
@@ -1504,8 +1568,50 @@ function drawCandle(f){
   ctx.fillStyle=C.candle;     ctx.fillRect(f.x,f.y,f.w-4,f.h);
   ctx.fillStyle="rgba(255,255,255,.22)"; ctx.fillRect(f.x+3,f.y+2,4,Math.max(0,f.h-6));
 }
+/* A hogtied toy: on its side, wrapped in three turns of the pull-string, wound up. The last
+   1.3s it shudders — that is the only warning you get before it works loose, and it has to be
+   motion, because a colour tell at this size reads as a rendering artefact. */
+function drawTied(f){
+  const b=f.tie; if(!b) return;
+  const warn = f.tied<TIE_WARN;
+  const art=FOE_ART[f.t], im=useProps && art && IMGS[art[0]];
+  ctx.save();
+  ctx.translate(b.x+b.w/2, b.y+b.h);
+  if(warn) ctx.rotate(Math.sin(G.t*38)*0.07);
+  ctx.fillStyle="rgba(11,11,13,.22)";
+  ctx.beginPath(); ctx.ellipse(0,0,b.w*.5,4,0,0,6.3); ctx.fill();
+  if(im){
+    // laid on its side: the sprite's own height becomes the bundle's width
+    const sc = (b.w-6)/im.naturalHeight;
+    ctx.save(); ctx.rotate(-Math.PI/2);
+    ctx.drawImage(im, -im.naturalWidth*sc/2, -im.naturalHeight*sc + (b.h-2),
+                      im.naturalWidth*sc, im.naturalHeight*sc);
+    ctx.restore();
+  } else {
+    ctx.fillStyle=C.void; rr(-b.w/2,-b.h,b.w,b.h,5);
+  }
+  // ⚠ the string is drawn DARK-THEN-LIGHT, not light alone. Three white wraps on act 1's wood
+  // read fine and all but disappeared on act 3's cream shelf — the dark backing is what makes
+  // one drawing work on both. Same rule as the card stacks.
+  const wraps=[-b.w*0.27,0,b.w*0.27];
+  ctx.lineCap="round";
+  ctx.strokeStyle="rgba(40,30,14,.55)"; ctx.lineWidth=4.4;
+  for(const dx of wraps){ ctx.beginPath(); ctx.moveTo(dx-1,-b.h-2.5); ctx.lineTo(dx+1,1.5); ctx.stroke(); }
+  ctx.strokeStyle="#FBF7EC"; ctx.lineWidth=2.4;
+  for(const dx of wraps){ ctx.beginPath(); ctx.moveTo(dx-1,-b.h-2.5); ctx.lineTo(dx+1,1.5); ctx.stroke(); }
+  // the lime bar is the whole "this is a springboard" affordance, so it is a BAR, not a pip —
+  // and it strobes once time starts running out
+  const pw=b.w*0.42;
+  ctx.fillStyle=C.limeHot;
+  ctx.globalAlpha = warn ? (0.30+Math.abs(Math.sin(G.t*16))*0.70) : 0.9;
+  ctx.fillRect(-pw/2,-b.h-6,pw,3.4);
+  ctx.globalAlpha *= 0.35; ctx.fillRect(-pw/2-3,-b.h-8.5,pw+6,8.5);
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
 function drawFoe(f){
   if(f.t==="candle"){ drawCandle(f); return; }
+  if(f.tied>0){ drawTied(f); return; }
   const dead=f.dead>0, k=dead?clamp(f.dead/0.5,0,1):1;
   const art=FOE_ART[f.t], im=useProps && art && (IMGS[art[art.length>1?((f.anim|0)%2):0]]);
   ctx.save();
@@ -1784,10 +1890,10 @@ function reset(from){
   G.fromAct = from|0;
   loadAct(G.fromAct);
   G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
-  G.foes=foesSrc.map(mkFoe);
+  G.foes=foesSrc.map(mkFoe); clearTies();
   G.bits.length=0;
   Object.assign(G.p,{x:60,y:GY-60,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
-                     roped:false,anchor:null,lastA:null,plat:null,anim:0,hurt:0,dead:0,
+                     roped:false,anchor:null,lastA:null,plat:null,lastPlat:null,spring:0,anim:0,hurt:0,dead:0,
                      airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
   G.cam.x=0; G.cam.y=G.p.y-VH*0.56; G.shk=0; G.flash=0; G.hitstop=0;
   G.seq=0; G.packOpen=0; G.goalOpen=1; G.hidePlayer=false; G.carded=false;
