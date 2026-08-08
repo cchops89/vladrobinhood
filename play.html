@@ -32,6 +32,24 @@ canvas{display:block;position:absolute;inset:0}
 #mcap{font-size:20px;font-weight:900;letter-spacing:-.02em;line-height:1;white-space:nowrap}
 #mcap .dn{color:#C0392B} #mcap .up{color:#2E7D32}
 #lives{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;display:flex;gap:6px}
+/* which of the three rooms you're in. Under the lives, because it changes twice a run and
+   the lives change constantly — the steadier number goes further from the eye. */
+#actbar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 32px);right:12px;
+  font-size:8.5px;font-weight:800;letter-spacing:.16em;color:var(--paper);opacity:.62;
+  text-align:right;text-shadow:0 1px 2px rgba(11,11,13,.8)}
+#actbar b{color:var(--lime-hot)}
+
+/* the between-acts card. pointer-events:none — it is a title, not a menu, and the run is
+   still simulating underneath it. */
+#actCard{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  pointer-events:none;background:rgba(11,11,13,.62);text-align:center;padding:24px}
+#actCard.on{display:flex}
+#actNum{font-size:11px;font-weight:800;letter-spacing:.34em;color:var(--lime-hot)}
+#actName{font-size:40px;font-weight:900;letter-spacing:-.03em;line-height:1;margin-top:8px;
+  color:var(--paper)}
+#actLine{font-size:12px;font-weight:600;line-height:1.4;margin-top:10px;max-width:330px;
+  color:var(--paper);opacity:.72;margin-left:auto;margin-right:auto}
+@media (max-width:620px){ #actName{font-size:30px} }
 .life{width:13px;height:13px;border-radius:3px;background:var(--lime-hot);box-shadow:0 0 0 2px rgba(11,11,13,.55)}
 .life.off{background:transparent;box-shadow:inset 0 0 0 2px rgba(242,240,236,.35)}
 
@@ -96,6 +114,16 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
 .btn{display:block;width:100%;margin-top:16px;padding:15px;background:var(--void);color:var(--lime-hot);
   font-size:14px;font-weight:900;letter-spacing:.16em;text-align:center}
 .keys{font-size:9.5px;opacity:.42;margin-top:9px;font-weight:700;letter-spacing:.05em;line-height:1.5}
+/* act select. Hidden entirely until you've cleared one — a first-time visitor should see the
+   card exactly as it was, with one button on it. */
+.actpick{display:flex;gap:5px;margin-top:12px}
+.actchip{flex:1;padding:8px 4px;background:rgba(11,11,13,.07);color:var(--void);
+  font-size:8.5px;font-weight:800;letter-spacing:.06em;line-height:1.25;text-align:center;
+  border:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.actchip .n{display:block;font-size:13px;font-weight:900;letter-spacing:0;margin-bottom:2px}
+.actchip.on{background:var(--void);color:var(--lime-hot);border-color:var(--void)}
+.actchip.lock{opacity:.3;cursor:default}
+.picknote{font-size:9px;font-weight:700;letter-spacing:.06em;opacity:.5;margin-top:7px;line-height:1.4}
 #ca{font-size:8.5px;word-break:break-all;opacity:.4;margin-top:10px;font-weight:600}
 </style>
 </head>
@@ -117,6 +145,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
   </div>
   <img id="brandmark" src="assets/sprites/feather.png" alt="">
   <div id="lives"></div>
+  <div id="actbar">ACT <b>1</b>/3 · THE DESK</div>
   <div id="pad">
     <div id="stick"><div id="knob"></div></div>
     <div class="grp">
@@ -136,9 +165,18 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     <div class="body" style="font-size:12px;opacity:.66;margin-top:8px">
       Jump twice for a <b>double jump</b>. The <b>pull-string</b> grabs <b>cable loops</b> on its own.
     </div>
+    <div class="actpick" id="pickStart"></div>
     <button class="btn" id="startBtn">CLIMB OUT</button>
     <div class="keys">← → move · SPACE / ↑ jump (×2) · R respawn · M mute</div>
     <div id="ca">CA 0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</div>
+  </div>
+</div>
+
+<div id="actCard">
+  <div>
+    <div id="actNum">ACT TWO</div>
+    <div id="actName">THE CABLE RUN</div>
+    <div id="actLine"></div>
   </div>
 </div>
 
@@ -153,6 +191,8 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
       <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Furthest</span><b id="oDist" style="font-size:19px;font-weight:900">0%</b></div>
       <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Best</span><b id="oBest" style="font-size:19px;font-weight:900">0%</b></div>
     </div>
+    <div class="actpick" id="pickOver"></div>
+    <div class="picknote" id="pickNote"></div>
     <button class="btn" id="againBtn">RUN IT BACK</button>
   </div>
 </div>
@@ -218,9 +258,31 @@ const AIR_JUMPS=1, AIR_JUMP_V=-620;   // double jump
 const ROPE_RANGE=270, ROPE_MIN=54, SWING_ACC=780;
 
 /* ============================ LEVEL ============================ */
+// THREE ACTS, one desk. Each act is a data blob; loadAct() swaps it into the live bindings
+// below and nothing downstream has to know which act it is in.
+//
+// ⚠ Every act's GROUND SLABS SIT AT GY. respawn() drops you at GY-90, the death plane is
+//   GY+520 and the checkpoint-spawn test boxes are measured off GY — an act with its floor
+//   somewhere else would respawn you inside geometry or in mid-air. The acts look different
+//   because THEME repaints them, not because the floor moved.
+//
+// ⚠ Solids are DEEP-COPIED on load. They mutate now: movers carry their own home position,
+//   crumblers carry a timer. Sharing one array across a restart would leave act 1 full of
+//   platforms that had already fallen.
 const GY = 430;
 const S = (x,y,w,h,t)=>({x,y,w,h,t});
-const solids = [
+// a moving platform: travels dx/dy either side of where it's authored, spd cycles per second
+const M = (x,y,w,h,t,dx,dy,spd,ph)=>({x,y,w,h,t,mv:{dx,dy,spd,ph:ph||0}});
+// a platform that gives way `tm` seconds after you first stand on it, back 2.6s later
+const CR = (x,y,w,h,t,tm)=>({x,y,w,h,t,cr:tm||0.55});
+// a wind zone: constant acceleration while your centre is inside it
+const Z = (x,y,w,h,ax,ay)=>({x,y,w,h,ax,ay});
+const F = (t,x,y,a,b)=>({t,x,y,a,b});
+
+/* ---------------- ACT 1 — THE DESK ---------------- */
+// Unchanged and deliberately so: it is the tuned, shipped tutorial act. Run, double jump,
+// rope. Everything new shows up in acts 2 and 3.
+const A1_SOLIDS = [
   S(-40,GY,1020,260,"desk"),
   S(300,GY-56,120,56,"sticky"), S(330,GY-104,90,48,"sticky"),
   S(600,GY-40,110,40,"sticky"), S(620,GY-84,80,44,"sticky"),
@@ -245,26 +307,30 @@ const solids = [
   S(5760,GY,900,260,"desk"),
   S(5900,GY-60,100,26,"shelf"), S(6120,GY-118,100,26,"shelf"),
 ];
-const anchors = [
+const A1_ANCHORS = [
   {x:1120,y:GY-215},{x:1330,y:GY-215},
   {x:2180,y:GY-225},
   {x:3500,y:GY-250},{x:4520,y:GY-235},
   {x:5060,y:GY-330},{x:5300,y:GY-360},
   {x:5700,y:GY-250},
 ];
-const coinsSrc = [[360,GY-140],[640,GY-130],[830,GY-190],[1180,GY-160],[1260,GY-120],[1340,GY-160],
+const A1_COINS = [[360,GY-140],[640,GY-130],[830,GY-190],[1180,GY-160],[1260,GY-120],[1340,GY-160],
   [1540,GY-120],[1700,GY-170],[2320,GY-60],[2430,GY-106],[2540,GY-152],[2670,GY-106],
   [2790,GY-60],[2900,GY-114],[3020,GY-170],[3140,GY-120],[3260,GY-66],
   [3700,GY-190],[3960,GY-90],[4200,GY-146],[4720,GY-120],[4960,GY-200],
-  [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168]].map(([x,y])=>({x,y}));
+  [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168]];
 // Desk junk with opinions. (t, spawn x, surface y, patrol left, patrol right)
-//   walker  — paces its stretch of desk, turns at the bounds. Stompable.
-//   charger — sits still until you're close, telegraphs, then runs you down. Stompable.
-//   candle  — a red chart candle that erupts out of the desk. NOT stompable, time it.
+//   walker   — paces its stretch of desk, turns at the bounds. Stompable.
+//   charger  — sits still until you're close, telegraphs, then runs you down. Stompable.
+//   candle   — a red chart candle that erupts out of the desk. NOT stompable, time it.
+//   clip     — act 2. A bent paperclip, half the height of a walker and 2.4x the speed,
+//              hopping as it skitters. Low enough to jump, fast enough that you must.
+//   knockoff — act 3. The bootleg figure. It doesn't patrol, it HUNTS: always walks toward
+//              you, inside its bounds, and never stops. Stompable, and stomping it is the
+//              only way to get a breather.
 // Every entry is checked by test/smoke.mjs: it must stand on a real surface and its
 // bounds must stay on that surface, or it walks off into the void.
-const F = (t,x,y,a,b)=>({t,x,y,a,b});
-const foesSrc = [
+const A1_FOES = [
   F("walker", 860,GY-30,   740, 960),
   F("walker",1900,GY-30,  1720,2160),
   F("walker",3100,GY,     2900,3400),   // the floor under the keyboard climb has teeth
@@ -274,15 +340,171 @@ const foesSrc = [
   F("candle",5300,GY,     5300,5300),
   F("charger",6200,GY-34, 5920,6450),
 ];
-const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56]};
+const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18], knockoff:[30,40]};
 // C2 landed 2026-08-05: real desk junk, no more flat silhouettes next to a photoreal hero.
-// Walkers chatter, the charger is a stapler. C1 stays on disk, unused.
-const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"]};
+// Walkers chatter, the charger is a stapler. `clip` and `knockoff` were cut out by the same
+// build and sat unused for two days waiting for a reason — acts 2 and 3 are the reason.
+const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"],
+                  clip:["clip"], knockoff:["knockoff"]};
 const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104;
+const FOE_CLIP=150, FOE_HUNT=94, HUNT_SEE=460;
 
-const checkpoints = [40,1460,2300,3600,4660,5800];
-const GOAL = {x:6520,y:GY-96,w:76,h:96};
-const LEVEL_END = 6700;
+/* ---------------- ACT 2 — THE CABLE RUN ---------------- */
+// He goes down the grommet hole and lands behind the monitor: no daylight, power bricks,
+// a cable channel for a floor. Two new verbs live here —
+//   MOVING PLATFORMS: the bricks slide on their own cables, and they carry you.
+//   FAN GAPS: the exhaust blows straight up out of the two widest gaps. The rope still
+//             works across them; the updraft is the second answer, not the only one.
+const A2_SOLIDS = [
+  S(-40,GY,1040,260,"desk"),
+    M(520,GY-104,120,22,"brick",110,0,0.26,0),
+    S(760,GY-64,90,22,"brick"),
+  S(1420,GY,780,260,"desk"),
+    M(1520,GY-96,110,22,"brick",0,86,0.32,0),
+    M(1830,GY-150,110,22,"brick",0,104,0.27,1.7),
+    S(2060,GY-70,90,22,"brick"),
+  S(2620,GY,900,260,"desk"),
+    M(2320,GY-150,130,22,"brick",130,0,0.22,0),      // rides across the fan gap
+    S(2700,GY-80,100,22,"brick"), S(2900,GY-150,100,22,"brick"),
+    S(3120,GY-220,100,22,"brick"), S(3340,GY-150,100,22,"brick"),
+  S(3900,GY,980,260,"desk"),
+    M(3660,GY-190,120,22,"brick",0,120,0.23,0),       // the lift in the second fan gap
+    S(4000,GY-70,100,22,"brick"), S(4230,GY-124,100,22,"brick"),
+    S(4460,GY-70,100,22,"brick"), S(4680,GY-150,100,22,"brick"),
+  S(5060,GY,860,260,"desk"),
+    M(5160,GY-110,110,22,"brick",130,0,0.22,0.9),
+    S(5460,GY-176,110,22,"brick"), S(5680,GY-96,110,22,"brick"),
+  S(6160,GY,920,260,"desk"),
+    M(6000,GY-170,120,22,"brick",0,110,0.25,0),
+    S(6300,GY-80,100,22,"brick"), S(6520,GY-150,100,22,"brick"),
+];
+const A2_ANCHORS = [
+  {x:1120,y:GY-210},{x:1330,y:GY-210},
+  {x:2400,y:GY-235},
+  {x:3660,y:GY-240},{x:3820,y:GY-235},
+  {x:4980,y:GY-215},
+  {x:5540,y:GY-330},
+  {x:6040,y:GY-215},
+];
+const A2_COINS = [[300,GY-110],[560,GY-160],[790,GY-120],
+  [1120,GY-90],[1230,GY-140],[1330,GY-90],
+  [1570,GY-150],[1880,GY-210],[2100,GY-120],
+  [2380,GY-210],[2400,GY-100],
+  [2750,GY-140],[2950,GY-210],[3170,GY-280],[3390,GY-210],
+  [3660,GY-120],[3820,GY-120],
+  [4050,GY-130],[4280,GY-184],[4510,GY-130],[4730,GY-210],
+  [4980,GY-90],[5210,GY-170],[5510,GY-236],[5540,GY-190],[5730,GY-156],
+  [6040,GY-100],[6350,GY-140],[6570,GY-210],[6850,GY-110]];
+const A2_FOES = [
+  F("clip",    620,GY-18,  200, 900),
+  F("clip",   1760,GY-18, 1560,2160),
+  F("charger",2960,GY-34, 2760,3440),
+  F("candle", 3300,GY,    3300,3300),
+  F("clip",   4300,GY-18, 4020,4800),
+  F("charger",4700,GY-34, 4520,4860),
+  F("clip",   5300,GY-18, 5180,5860),
+  F("candle", 5600,GY,    5600,5600),
+  F("charger",6600,GY-34, 6300,6860),
+];
+// -1500 against GRAV 2300 leaves a net 800 down: you fall, slowly, and you can steer it.
+// Enough to cross; not enough to hover, which would delete the act.
+const A2_ZONES = [
+  Z(2205,GY-340,420,340, 0,-1500),
+  Z(3525,GY-320,380,320, 0,-1400),
+];
+
+/* ---------------- ACT 3 — THE SHELF ---------------- */
+// Up where the boxed figures live. Bright, painted plank, window light. The new verb is
+// CRUMBLING CARD STACKS: they hold for half a second and then they're gone for two and a
+// half, so the climbs have to be read ahead instead of stood on. The bootleg figures hunt.
+const A3_SOLIDS = [
+  S(-40,GY,1000,260,"desk"),
+    CR(320,GY-90,110,20,"card"), CR(560,GY-150,110,20,"card"), S(780,GY-70,100,22,"crate"),
+  S(1400,GY,820,260,"desk"),
+    CR(1480,GY-100,110,20,"card"), CR(1700,GY-170,110,20,"card"), CR(1930,GY-240,110,20,"card"),
+    S(2120,GY-90,100,22,"crate"),
+  S(2600,GY,940,260,"desk"),
+    M(2680,GY-120,120,22,"crate",0,110,0.25,0),
+    CR(2960,GY-200,110,20,"card"), CR(3180,GY-140,110,20,"card"),
+    S(3400,GY-80,100,22,"crate"),
+  S(3920,GY,1000,260,"desk"),
+    S(4000,GY-70,110,22,"crate"), CR(4230,GY-140,110,20,"card"),
+    CR(4450,GY-210,110,20,"card"), CR(4670,GY-280,110,20,"card"),
+  S(5300,GY,860,260,"desk"),
+    M(5400,GY-140,120,22,"crate",140,0,0.2,0),
+    S(5760,GY-200,110,22,"crate"), CR(5980,GY-130,110,20,"card"),
+  S(6540,GY,1060,260,"desk"),
+    S(6640,GY-90,110,22,"crate"), CR(6880,GY-160,110,20,"card"), S(7100,GY-90,110,22,"crate"),
+];
+const A3_ANCHORS = [
+  {x:1080,y:GY-205},{x:1300,y:GY-205},
+  {x:2360,y:GY-215},{x:2500,y:GY-205},
+  {x:3680,y:GY-215},{x:3840,y:GY-205},
+  {x:4780,y:GY-380},
+  {x:5060,y:GY-200},{x:5200,y:GY-205},
+  {x:6300,y:GY-200},{x:6440,y:GY-205},
+];
+const A3_COINS = [[360,GY-150],[610,GY-210],[830,GY-130],
+  [1080,GY-85],[1190,GY-135],[1300,GY-85],
+  [1530,GY-160],[1750,GY-230],[1980,GY-300],[2170,GY-150],
+  [2360,GY-95],[2500,GY-85],
+  [2740,GY-180],[3010,GY-260],[3230,GY-200],[3450,GY-140],
+  [3680,GY-95],[3840,GY-85],
+  [4055,GY-130],[4285,GY-200],[4505,GY-270],[4725,GY-340],[4780,GY-260],
+  [5060,GY-80],[5200,GY-85],[5460,GY-200],[5810,GY-260],[6030,GY-190],
+  [6300,GY-80],[6440,GY-85],[6690,GY-150],[6930,GY-220],[7150,GY-150]];
+const A3_FOES = [
+  F("knockoff", 600,GY-40,  180, 920),
+  F("walker",  1800,GY-30, 1560,2200),
+  F("candle",  2900,GY,    2900,2900),
+  F("knockoff",3200,GY-40, 2760,3520),
+  F("walker",  4300,GY-30, 4060,4900),
+  F("candle",  4600,GY,    4600,4600),
+  F("knockoff",5600,GY-40, 5460,6140),
+  F("charger", 6900,GY-34, 6680,7300),
+];
+// the open window at the end of the shelf. A headwind, not a wall — 260 against ACC_AIR
+// 1900 is 14%, enough to feel the last swing get harder and not enough to stop it.
+const A3_ZONES = [ Z(6160,GY-280,380,280, -260,0) ];
+
+/* ---------------- the acts, and the live bindings ---------------- */
+const ACTS = [
+  {name:"THE DESK", fall:"Knocked off the desk", n:"ACT ONE", line:"Off the blister and across the desk. Mind the drop.",
+   solids:A1_SOLIDS, anchors:A1_ANCHORS, coins:A1_COINS, foes:A1_FOES, zones:[],
+   checkpoints:[40,1460,2300,3600,4660,5800], goal:{x:6520,y:GY-96,w:76,h:96}, end:6700,
+   theme:{ground:"wood", wall:"#E8DFCE", wallDark:"#D6CAB3", bg:.85, glow:"194,230,25",
+          dust:"#FFF6DC", dustA:.14, tint:null}},
+
+  {name:"THE CABLE RUN", fall:"Lost behind the monitor", n:"ACT TWO", line:"Behind the monitor. The bricks move and the fans blow.",
+   solids:A2_SOLIDS, anchors:A2_ANCHORS, coins:A2_COINS, foes:A2_FOES, zones:A2_ZONES,
+   checkpoints:[40,1460,2660,3940,5100,6200], goal:{x:6900,y:GY-96,w:76,h:96}, end:7100,
+   theme:{ground:"cable", wall:"#232A33", wallDark:"#12161C", bg:.16, glow:"90,200,255",
+          dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)"}},
+
+  {name:"THE SHELF", fall:"Knocked off the shelf", n:"ACT THREE", line:"Up with the boxed figures. Nothing up here holds for long.",
+   solids:A3_SOLIDS, anchors:A3_ANCHORS, coins:A3_COINS, foes:A3_FOES, zones:A3_ZONES,
+   checkpoints:[40,1440,2640,3960,5340,6580], goal:{x:7420,y:GY-96,w:76,h:96}, end:7620,
+   theme:{ground:"shelf", wall:"#F6EFE0", wallDark:"#E4D3B2", bg:.58, glow:"255,214,120",
+          dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)"}},
+];
+// live bindings — reassigned wholesale by loadAct(), read everywhere else
+let ACT = 0, solids = [], anchors = [], coinsSrc = [], foesSrc = [], zones = [];
+let checkpoints = [], GOAL = ACTS[0].goal, LEVEL_END = ACTS[0].end, THEME = ACTS[0].theme;
+function loadAct(i){
+  // NB: not clamp() — that's a const further down and this runs at module init (TDZ).
+  ACT = i<0 ? 0 : i>=ACTS.length ? ACTS.length-1 : i;
+  const a = ACTS[ACT];
+  // deep copy: movers keep a home position on the copy, crumblers keep a timer
+  solids = a.solids.map(s=>{
+    const c={x:s.x,y:s.y,w:s.w,h:s.h,t:s.t};
+    if(s.mv){ c.mv=s.mv; c.hx=s.x; c.hy=s.y; c.ddx=0; c.ddy=0; }
+    if(s.cr){ c.cr=s.cr; c.crT=0; c.gone=false; c.reT=0; }
+    return c;
+  });
+  anchors=a.anchors; coinsSrc=a.coins.map(([x,y])=>({x,y})); foesSrc=a.foes; zones=a.zones;
+  checkpoints=a.checkpoints; GOAL=a.goal; LEVEL_END=a.end; THEME=a.theme;
+}
+loadAct(0);
 
 /* ============================ SPRITES ============================ */
 // Frames are pre-normalised by tools/build-sprites.py: every frame sits on ONE canvas
@@ -404,10 +626,10 @@ const G = {
   mode:"start", t:0,
   p:{x:60,y:GY-60,px:60,py:GY-60,w:20,h:34,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
      roped:false,anchor:null,lastA:null,ax:0,ay:0,ropeLen:0,anim:0,hurt:0,dead:0,
-     airJumps:0,flip:0,landT:0,grabCd:0},
+     airJumps:0,flip:0,landT:0,grabCd:0,plat:null},
   cam:{x:0,y:0}, coins:[], bits:[], foes:[],
   got:0, lives:3, cp:0, maxX:0, shk:0, flash:0, hitstop:0,
-  seq:0, packOpen:0, goalOpen:1, hidePlayer:false,
+  seq:0, packOpen:0, goalOpen:1, hidePlayer:false, carded:false, fromAct:0,
   best:+(localStorage.getItem('unboxed_best')||0),
 };
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -448,6 +670,8 @@ const SFX = {
   crack(){ noise(.16,.11,2200); tone(900,300,.1,"square",.05); },
   seal(){ tone(420,180,.16,"square",.07); noise(.08,.05,900,.06); },
   tell(){ tone(150,240,.12,"sawtooth",.05); },
+  creak(){ tone(210,150,.18,"triangle",.05); noise(.1,.03,600); },
+  fan(){ noise(.3,.02,240); },
 };
 
 /* ============================ INPUT ============================ */
@@ -542,14 +766,53 @@ function segBox(x0,y0,x1,y1,cx,cy,hw,hh){
 function moveAxis(p,dx,dy){
   if(dx){
     p.x += dx;
-    for(const s of solids){ if(!hits(p,s)) continue;
+    for(const s of solids){ if(s.gone || !hits(p,s)) continue;
       p.x = dx>0 ? s.x-p.w : s.x+s.w; p.vx=0; }
   }
   if(dy){
     p.y += dy; p.ground=false;
-    for(const s of solids){ if(!hits(p,s)) continue;
-      if(dy>0){ p.y=s.y-p.h; p.ground=true; } else p.y=s.y+s.h;
+    for(const s of solids){ if(s.gone || !hits(p,s)) continue;
+      if(dy>0){ p.y=s.y-p.h; p.ground=true; p.plat=s; touchdown(s); } else p.y=s.y+s.h;
       p.vy=0; }
+  }
+}
+
+/* ============================ PLATFORMS THAT DON'T HOLD STILL ============================ */
+// Two behaviours, both authored as plain data on the solid, so collision, drawing, the
+// reachability tests and the rope all keep treating them as ordinary geometry.
+const CR_BACK = 2.6;            // how long a crumbled stack stays gone
+function touchdown(s){
+  if(s.cr && !s.crT && !s.gone){ s.crT = s.cr; SFX.creak(); }
+}
+function stepPlatforms(dt){
+  for(const s of solids){
+    if(s.mv){
+      // ddx/ddy is this frame's movement — the player standing on it gets carried by exactly
+      // that, which is the whole reason it's stored rather than recomputed.
+      const ph = G.t*s.mv.spd*6.283 + s.mv.ph;
+      const nx = s.hx + Math.sin(ph)*s.mv.dx, ny = s.hy + Math.sin(ph)*s.mv.dy;
+      s.ddx = nx-s.x; s.ddy = ny-s.y; s.x = nx; s.y = ny;
+    }
+    if(s.cr){
+      if(s.gone){ s.reT-=dt; if(s.reT<=0){ s.gone=false; s.crT=0; } }
+      else if(s.crT>0){
+        s.crT-=dt;
+        if(s.crT<=0){
+          s.gone=true; s.reT=CR_BACK; s.crT=0;
+          burst(s.x+s.w/2, s.y+s.h, 10, "#D9C7A6"); SFX.miss();
+        }
+      }
+    }
+  }
+}
+// A wind zone accelerates you while your CENTRE is inside it. Centre, not the box, so
+// clipping a corner on the way past doesn't launch you.
+function stepZones(p,dt){
+  if(!zones.length) return;
+  const cx=p.x+p.w/2, cy=p.y+p.h/2;
+  for(const z of zones){
+    if(cx<z.x || cx>z.x+z.w || cy<z.y || cy>z.y+z.h) continue;
+    p.vx += z.ax*dt; p.vy += z.ay*dt;
   }
 }
 
@@ -568,7 +831,7 @@ function bestAnchor(p){
 function groundBelow(p){
   const cx=p.x+p.w/2, feet=p.y+p.h; let best=1e9;
   for(const s of solids){
-    if(cx<s.x || cx>s.x+s.w || s.y<feet-2) continue;
+    if(s.gone || cx<s.x || cx>s.x+s.w || s.y<feet-2) continue;
     best=Math.min(best, s.y-feet);
   }
   return best;
@@ -612,6 +875,7 @@ function frame(now){
   else if(G.mode==="play")  update(dt);
   else if(G.mode==="intro") stepIntro(dt);
   else if(G.mode==="outro") stepOutro(dt);
+  else if(G.mode==="clear") stepClear(dt);
   G.shk=lerp(G.shk,0,clamp(dt*9,0,1));
   G.flash=Math.max(0,G.flash-dt*3);
   stepBits(dt);
@@ -634,6 +898,50 @@ function stepIntro(dt){
   G.hidePlayer=false; G.mode="play"; G.shk=9;
   burst(PACK_X,GY-20,16,C.limeHot); SFX.dbl();
 }
+/* Between acts. Every act ENDS sealed in the pack and BEGINS kicking out of it — the same
+   two beats that bookend the run, three times over (Chris, 08-08). So the handover is just:
+   the outro finishes sealing → hold on the act card → drop a fresh sealed pack on the new
+   floor → hand straight back to stepIntro, which cracks it open and launches him out.
+   Coins and lives CARRY. Lives deliberately do not refill — three across the whole thing. */
+function startClear(){
+  G.mode="clear"; G.seq=0; G.carded=false; G.hidePlayer=true;
+}
+function stepClear(dt){
+  G.seq += dt;
+  if(!G.carded && G.seq>0.22){
+    G.carded=true;
+    loadAct(ACT+1);
+    enterAct();
+    G.packOpen=0; G.hidePlayer=true;      // sealed again, on the new floor
+    showActCard();
+  }
+  // camera is pinned on the pack rather than lerped: the player is inside it and has no
+  // position worth following, and updateCamera would drift the shot for two whole seconds
+  if(G.carded){ G.cam.x = PACK_X - VW*0.5; G.cam.y = (GY-PACK_H*0.6) - VH*0.5; }
+  if(G.seq>2.3){ hideActCard(); G.mode="intro"; G.seq=0; }
+}
+// everything an act needs on the way in, shared by the transition and by reset()
+function enterAct(){
+  const p=G.p;
+  markUnlocked(ACT);
+  G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
+  G.foes=foesSrc.map(mkFoe);
+  G.cp=0; G.maxX=0; G.goalOpen=1;
+  Object.assign(p,{x:checkpoints[0],y:GY-90,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
+                   roped:false,anchor:null,lastA:null,plat:null,hurt:0,dead:0,
+                   airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
+  G.cam.x=p.x-VW*0.38; G.cam.y=p.y-VH*0.56;
+  syncHUD();
+}
+const elAct = document.getElementById("actCard");
+function showActCard(){
+  document.getElementById("actNum").textContent  = ACTS[ACT].n;
+  document.getElementById("actName").textContent = ACTS[ACT].name;
+  document.getElementById("actLine").textContent = ACTS[ACT].line;
+  elAct.classList.add("on");
+}
+function hideActCard(){ elAct.classList.remove("on"); }
+
 function startOutro(){
   if(G.mode!=="play") return;
   const p=G.p;
@@ -649,12 +957,20 @@ function stepOutro(dt){
     G.hidePlayer=true; SFX.crack(); burst(GOAL.x+GOAL.w/2,GOAL.y+GOAL.h/2,14,C.limeHot);
   }
   G.goalOpen = G.seq<0.40 ? 1 : clamp(1-(G.seq-0.40)/0.45, 0, 1);
-  if(G.seq>1.05){ SFX.seal(); endRun(true); }
+  // sealed. Last act = you're home; anything else = the pack opens again in the next room.
+  if(G.seq>1.05){ SFX.seal(); (ACT<ACTS.length-1) ? startClear() : endRun(true); }
   updateCamera(dt);
 }
 
 function update(dt){
   const p=G.p;
+  // Platforms move BEFORE the body does, and anything standing on one is carried by exactly
+  // the delta it just travelled. Do it after the physics instead and a rising brick punches
+  // through your feet before the collision pass ever sees it.
+  stepPlatforms(dt);
+  if(p.plat && p.ground && !p.plat.gone && p.plat.mv){ p.x += p.plat.ddx; p.y += p.plat.ddy; }
+  p.plat = null;
+
   p.px=p.x; p.py=p.y;       // where the body was before this frame's physics — the stomp test
 
   if(p.dead>0){
@@ -674,6 +990,8 @@ function update(dt){
   }
   const auto=autoAnchor(p);
   if(auto) fireString(auto);
+
+  stepZones(p,dt);          // fans and the open window — applies on the rope too
 
   const dir=(K.right?1:0)-(K.left?1:0);
   if(dir) p.face=dir;
@@ -702,8 +1020,9 @@ function update(dt){
     p.ground=false; p.coyote=0;
     // don't let the swing arc pass through geometry
     for(const s of solids){
-      if(!hits(p,s)) continue;
-      if(p.vy>0 && (p.y+p.h)-s.y < 22){ p.y=s.y-p.h; p.vy=0; p.ground=true; p.roped=false; }
+      if(s.gone || !hits(p,s)) continue;
+      if(p.vy>0 && (p.y+p.h)-s.y < 22){ p.y=s.y-p.h; p.vy=0; p.ground=true; p.roped=false;
+                                        p.plat=s; touchdown(s); }
       else if(p.vx>0) { p.x=s.x-p.w; p.vx=0; }
       else if(p.vx<0) { p.x=s.x+s.w; p.vx=0; }
     }
@@ -766,6 +1085,8 @@ function update(dt){
   }
   for(let i=0;i<checkpoints.length;i++) if(p.x>checkpoints[i]) G.cp=i;
 
+  // EVERY act ends in the pack, not just the last one (Chris, 08-08: "i wanna start and end
+  // with the booster each level"). The outro decides what happens after it seals.
   if(hits({x:p.x,y:p.y,w:p.w,h:p.h}, GOAL)) startOutro();
 
   updateCamera(dt);
@@ -784,7 +1105,7 @@ function mkFoe(s){
   const [w,h]=FOE_BOX[s.t];
   return {t:s.t, x:s.x, y:s.t==="candle"?s.y:s.y, w, h:s.t==="candle"?0:h,
           full:h, base:s.y, a:s.a, b:s.b, dir:-1, anim:0, state:"idle", timer:0,
-          phase:s.x*0.01, dead:0};
+          phase:s.x*0.01, dead:0, hop:0};
 }
 function stepFoes(dt){
   const p=G.p, pc=p.x+p.w/2;
@@ -795,6 +1116,22 @@ function stepFoes(dt){
       f.x += f.dir*FOE_WALK*dt; f.anim += dt*7;
       if(f.x<f.a){ f.x=f.a; f.dir=1; }
       else if(f.x+f.w>f.b){ f.x=f.b-f.w; f.dir=-1; }
+
+    } else if(f.t==="clip"){
+      // a bent paperclip skittering: walker logic at 2.4x speed, with a hop so the eye can
+      // track it. hop is DRAW-only — a bouncing hitbox on something this fast is unreadable.
+      f.x += f.dir*FOE_CLIP*dt; f.anim += dt*17; f.hop = Math.abs(Math.sin(f.anim*0.9))*7;
+      if(f.x<f.a){ f.x=f.a; f.dir=1; }
+      else if(f.x+f.w>f.b){ f.x=f.b-f.w; f.dir=-1; }
+
+    } else if(f.t==="knockoff"){
+      // the bootleg. It doesn't patrol, it comes at you — inside its bounds, forever. Slower
+      // than you are on purpose: it's pressure, not a chase you can lose.
+      const d=pc-(f.x+f.w/2);
+      const awake = Math.abs(d)<HUNT_SEE && G.mode==="play" && p.dead<=0;
+      if(awake){ f.dir=Math.sign(d)||f.dir; f.x += f.dir*FOE_HUNT*dt; f.anim += dt*9; }
+      else f.anim += dt*1.4;
+      f.x = clamp(f.x, f.a, f.b-f.w);
 
     } else if(f.t==="charger"){
       const d=pc-(f.x+f.w/2);
@@ -853,20 +1190,33 @@ function respawn(){
   const p=G.p;
   if(G.lives<=0){ endRun(false); return; }
   p.x=checkpoints[G.cp]; p.y=GY-90; p.vx=0; p.vy=0; p.dead=0; p.hurt=1.1; p.roped=false;
-  p.airJumps=AIR_JUMPS; p.flip=0; p.grabCd=0; p.lastA=null; p.anchor=null;
+  p.airJumps=AIR_JUMPS; p.flip=0; p.grabCd=0; p.lastA=null; p.anchor=null; p.plat=null;
   G.foes=foesSrc.map(mkFoe);      // the desk resets with you
+  // ...and so do the card stacks. Dying on the third one of a climb and coming back to find
+  // the first two still missing is a checkpoint you cannot leave.
+  for(const s of solids) if(s.cr){ s.gone=false; s.crT=0; s.reT=0; }
   G.cam.x=p.x-VW*0.38; G.cam.y=p.y-VH*0.56;
   syncHUD();
 }
 
-function pct(){ return Math.round(clamp(G.maxX/GOAL.x,0,1)*100); }
+// Progress is across the WHOLE run now, not the act you happen to be in — the act you
+// cleared is banked, so "best 62%" means the same thing it did before there were three.
+function pct(){
+  return Math.round(clamp((ACT + clamp(G.maxX/GOAL.x,0,1))/ACTS.length,0,1)*100);
+}
 function endRun(won){
   G.mode="over";
   const d = won?100:pct();
-  G.best = Math.max(G.best, d);
-  localStorage.setItem("unboxed_best", G.best);
+  // a run that started mid-way is practice — it shows its own %, it does not bank a best
+  if(G.fromAct===0){
+    G.best = Math.max(G.best, d);
+    localStorage.setItem("unboxed_best", G.best);
+  }
+  // ...and RUN IT BACK offers the act you actually died in, not the top of the whole game
+  chosenAct = won ? 0 : Math.min(ACT, unlocked);
+  buildPickers();
   if(won){ G.flash=1; [0,.09,.18,.3].forEach((dl,i)=>tone(520+i*180,700+i*220,.16,"square",.06,dl)); }
-  document.getElementById("overKick").textContent  = won?"Back on the shelf":"Knocked off the desk";
+  document.getElementById("overKick").textContent  = won ? "Back on the shelf" : ACTS[ACT].fall;
   document.getElementById("overTitle").textContent = won?"MADE IT HOME":"OUT OF LIVES";
   document.getElementById("oCoins").textContent = G.got;
   document.getElementById("oDist").textContent  = d+"%";
@@ -884,6 +1234,7 @@ function draw(){
   drawBackground();
   ctx.save(); ctx.translate(-G.cam.x,-G.cam.y);
   ctx.globalAlpha=1;                 // guard: a leaked alpha from the bg pass once
+  for(const z of zones) drawZone(z);     // under everything — wind never paints over him
   for(const s of solids) drawSolid(s);   // drew the entire world at 14% opacity
   drawGoal();
   for(const a of anchors) drawAnchor(a);
@@ -891,9 +1242,9 @@ function draw(){
   for(const c of G.coins) if(!c.got) drawCoin(c);
   for(const f of G.foes) drawFoe(f);
   // sealed on the title card, cracking open on CLIMB OUT, gone once he's out
-  if(G.mode==="start"||G.mode==="intro")
+  if(G.mode==="start"||G.mode==="intro"||G.mode==="clear")
     drawPack(PACK_X, GY, PACK_H, G.packOpen, true);
-  if(!G.hidePlayer && G.mode!=="start" && G.mode!=="intro") drawPlayer();
+  if(!G.hidePlayer && G.mode!=="start" && G.mode!=="intro" && G.mode!=="clear") drawPlayer();
   for(const b of G.bits){
     ctx.globalAlpha=clamp(1-b.t/b.life,0,1); ctx.fillStyle=b.c;
     ctx.fillRect(b.x-b.s/2,b.y-b.s/2,b.s,b.s);
@@ -906,18 +1257,21 @@ function draw(){
 
 function drawBackground(){
   const g=ctx.createLinearGradient(0,0,0,VH);
-  g.addColorStop(0,C.wall); g.addColorStop(1,C.wallDark);
+  g.addColorStop(0,THEME.wall); g.addColorStop(1,THEME.wallDark);
   ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
-  if(IMGS.bg){                                    // photographic office plate, tiled + parallaxed
+  if(IMGS.bg && THEME.bg>0.02){    // photographic office plate, tiled + parallaxed
     const bh = VH*1.15, bw = bh*(IMGS.bg.naturalWidth/IMGS.bg.naturalHeight);
     let ox = (-G.cam.x*0.10) % bw; if(ox>0) ox-=bw;
     const oy = -G.cam.y*0.06 - VH*0.10;
-    ctx.globalAlpha=.85;
+    ctx.globalAlpha=THEME.bg;
     for(let x=ox; x<VW+bw; x+=bw) ctx.drawImage(IMGS.bg, x, oy, bw, bh);
     ctx.globalAlpha=1;
   }
+  // one flat wash over the plate is what makes the SAME photo read as a dark cable channel
+  // in act 2 and a sunlit shelf in act 3. Cheaper and steadier than three background images.
+  if(THEME.tint){ ctx.fillStyle=THEME.tint; ctx.fillRect(0,0,VW,VH); }
   const px=-G.cam.x*0.12, py=-G.cam.y*0.10;
-  ctx.globalAlpha=.14; ctx.fillStyle="#FFF6DC";
+  ctx.globalAlpha=THEME.dustA; ctx.fillStyle=THEME.dust;
   for(let i=0;i<7;i++){
     const x=((i*430+px)%(VW+540))-270, y=40+py+((i*67)%150);
     ctx.beginPath(); ctx.arc(x,y,34+(i%3)*14,0,6.3); ctx.fill();
@@ -932,7 +1286,7 @@ function drawBackground(){
   }
   const mx=-G.cam.x*0.2+340, my=-G.cam.y*0.16+150;
   const rg=ctx.createRadialGradient(mx,my,10,mx,my,260);
-  rg.addColorStop(0,"rgba(194,230,25,.20)"); rg.addColorStop(1,"rgba(194,230,25,0)");
+  rg.addColorStop(0,"rgba("+THEME.glow+",.20)"); rg.addColorStop(1,"rgba("+THEME.glow+",0)");
   ctx.fillStyle=rg; ctx.fillRect(mx-260,my-260,520,520);
 }
 
@@ -965,23 +1319,64 @@ function contactShadow(s){
   ctx.globalAlpha=1;
 }
 
+/* ⚠ The save/restore lives HERE, in a wrapper, and is paired on a boolean — never on the
+   shake offset and never inside the body. Two ways the old shape leaked a save:
+     1. on the FIRST frame of a crumble crT===cr, so the offset is exactly 0 and `if(sx)`
+        was false while save() had already run;
+     2. five of the branches below `return` early when propFill() draws the photo.
+   A leaked save is not a local glitch: the later restore() in draw() pops the wrong level,
+   so the death flash paints in world space and the screen-shake translate never unwinds —
+   the whole view drifts, permanently, from one landing on one card stack. */
 function drawSolid(s){
+  if(s.gone) return;
+  const shook = !!(s.cr && s.crT>0);
+  if(shook){
+    // a crumbler about to go shudders in place. The tell has to be motion, not colour — at
+    // this size a colour shift under a photoreal figure just reads as a rendering artefact.
+    ctx.save(); ctx.translate(Math.sin(G.t*54)*(1-s.crT/s.cr)*3.2, 0);
+  }
+  drawSolidArt(s);
+  if(shook) ctx.restore();
+}
+function drawSolidArt(s){
   if(s.t!=="desk") contactShadow(s);
   if(s.t==="desk"){
-    ctx.fillStyle=C.wood;    ctx.fillRect(s.x,s.y,s.w,s.h);
-    ctx.fillStyle=C.woodLit; ctx.fillRect(s.x,s.y,s.w,7);
-    ctx.fillStyle=C.woodEdge;ctx.fillRect(s.x,s.y+7,s.w,4);
-    // rounded end caps so the drop reads as a real desk edge you could fall off
-    ctx.fillStyle=C.woodEdge; ctx.fillRect(s.x,s.y,9,s.h); ctx.fillRect(s.x+s.w-9,s.y,9,s.h);
-    ctx.fillStyle="rgba(0,0,0,.16)";
-    ctx.fillRect(s.x+9,s.y+11,10,s.h-11); ctx.fillRect(s.x+s.w-19,s.y+11,10,s.h-11);
-    ctx.strokeStyle="rgba(122,84,41,.30)"; ctx.lineWidth=2;
-    for(let i=0;i<7;i++){
-      const y=s.y+26+i*30;
-      ctx.beginPath(); ctx.moveTo(s.x,y);
-      ctx.bezierCurveTo(s.x+s.w*.3,y+7,s.x+s.w*.6,y-7,s.x+s.w,y+3);
-      ctx.stroke();
+    drawGround(s);
+  } else if(s.t==="brick"){
+    // act 2's power brick: dark plastic on a dark room, with the one lime LED that says
+    // "standable". The register is right because everything back there IS black plastic.
+    ctx.fillStyle="#0D1015"; rr(s.x,s.y,s.w,s.h,4);
+    ctx.fillStyle="#3B434F"; rr(s.x+2,s.y+2,s.w-4,s.h*0.52,3);
+    ctx.fillStyle="rgba(226,236,248,.42)"; ctx.fillRect(s.x+3,s.y+1.5,s.w-6,2.6);
+    ctx.fillStyle=C.limeHot; ctx.globalAlpha=.55+Math.sin(G.t*3+s.x*0.01)*.35;
+    ctx.fillRect(s.x+s.w-12,s.y+s.h*0.42,5,5); ctx.globalAlpha=1;
+  } else if(s.t==="crate"){
+    // act 3's solid ground-level prop: a taped shipping box. Kraft, so it reads against the
+    // cream plank — act 2's black power brick on a sunlit shelf was the wrong room's prop.
+    ctx.fillStyle="#A5763B"; rr(s.x,s.y,s.w,s.h,3);
+    ctx.fillStyle="#C08F4C"; ctx.fillRect(s.x+1.5,s.y+1.5,s.w-3,s.h*0.42);
+    ctx.fillStyle="rgba(60,40,16,.30)"; ctx.fillRect(s.x,s.y+s.h*0.5,s.w,1.6);
+    ctx.fillStyle="rgba(236,228,208,.72)"; ctx.fillRect(s.x+s.w*0.5-4,s.y,8,s.h);
+    ctx.fillStyle=C.limeHot; ctx.globalAlpha=.85;
+    ctx.fillRect(s.x+6,s.y+3,10,3); ctx.globalAlpha=1;
+  } else if(s.t==="card"){
+    // act 3's crumbler: a stack of cards. Layers, not a slab — the layers are what make it
+    // read as something that can come apart, and the DARK EDGE on each one is what makes it
+    // read at all. v1 was cream layers with 10% edges on a cream shelf and it was invisible
+    // in the capture: same trap as the lime-on-lime accent in supply-burn.
+    const n=4, lh=s.h/n;
+    ctx.fillStyle="rgba(60,45,25,.22)";
+    ctx.fillRect(s.x-2,s.y+s.h-1,s.w+4,3);                       // it casts, so it sits ON something
+    for(let i=0;i<n;i++){
+      const off=((i%2)?2.5:-2.5)*(1+(s.crT>0?(1-s.crT/s.cr)*2.4:0));
+      ctx.fillStyle = i===0?"#FFFFFF":(i%2?"#EFE7D6":"#F8F3E7");
+      ctx.fillRect(s.x+off, s.y+i*lh, s.w, lh+0.6);
+      ctx.fillStyle="rgba(60,45,25,.42)"; ctx.fillRect(s.x+off, s.y+i*lh+lh-1.2, s.w, 1.6);
     }
+    ctx.strokeStyle="rgba(60,45,25,.34)"; ctx.lineWidth=1.4;
+    ctx.strokeRect(s.x+0.7,s.y+0.7,s.w-1.4,s.h-1.4);
+    ctx.fillStyle=C.limeHot; ctx.globalAlpha=.9;
+    ctx.fillRect(s.x+s.w*0.5-11, s.y+1.5, 22, 3); ctx.globalAlpha=1;
   } else if(s.t==="sticky"){
     if(propFill("sticky",s.x,s.y,s.w,s.h)) return;
     ctx.fillStyle=C.stickyDark; ctx.fillRect(s.x+3,s.y+4,s.w,s.h);
@@ -1012,6 +1407,92 @@ function drawSolid(s){
   }
 }
 
+/* The ground slab is the same collision box in every act — only the paint changes, which is
+   the whole trick: three rooms, one set of physics, zero new geometry rules. */
+function drawGround(s){
+  if(THEME.ground==="cable"){
+    // behind the monitor: a black cable channel, ribbed, with cords running along it
+    ctx.fillStyle="#101318"; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle="#1D222A"; ctx.fillRect(s.x,s.y,s.w,9);
+    ctx.fillStyle="#2A313C"; ctx.fillRect(s.x,s.y,s.w,3);
+    ctx.fillStyle="#080A0D"; ctx.fillRect(s.x,s.y,7,s.h); ctx.fillRect(s.x+s.w-7,s.y,7,s.h);
+    ctx.strokeStyle="rgba(255,255,255,.045)"; ctx.lineWidth=2;
+    for(let x=s.x+16;x<s.x+s.w-8;x+=26){
+      ctx.beginPath(); ctx.moveTo(x,s.y+12); ctx.lineTo(x,s.y+s.h); ctx.stroke();
+    }
+    ctx.strokeStyle="rgba(90,200,255,.10)"; ctx.lineWidth=3; ctx.lineCap="round";
+    for(let i=0;i<3;i++){
+      const y=s.y+34+i*46;
+      ctx.beginPath(); ctx.moveTo(s.x,y);
+      ctx.bezierCurveTo(s.x+s.w*.34,y+13,s.x+s.w*.62,y-11,s.x+s.w,y+5); ctx.stroke();
+    }
+  } else if(THEME.ground==="shelf"){
+    // the display shelf: painted plank, chipped front edge, warm shadow under the lip
+    ctx.fillStyle="#E7DFCC"; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle="#FBF6E9"; ctx.fillRect(s.x,s.y,s.w,8);
+    ctx.fillStyle="#CBBB9C"; ctx.fillRect(s.x,s.y+8,s.w,5);
+    ctx.fillStyle="rgba(120,96,58,.28)"; ctx.fillRect(s.x,s.y+13,s.w,s.h-13);
+    ctx.fillStyle="#CBBB9C"; ctx.fillRect(s.x,s.y,8,s.h); ctx.fillRect(s.x+s.w-8,s.y,8,s.h);
+    ctx.strokeStyle="rgba(120,96,58,.16)"; ctx.lineWidth=2;
+    for(let i=0;i<5;i++){
+      const y=s.y+34+i*38;
+      ctx.beginPath(); ctx.moveTo(s.x,y);
+      ctx.bezierCurveTo(s.x+s.w*.3,y+6,s.x+s.w*.6,y-6,s.x+s.w,y+3); ctx.stroke();
+    }
+  } else {
+    ctx.fillStyle=C.wood;    ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle=C.woodLit; ctx.fillRect(s.x,s.y,s.w,7);
+    ctx.fillStyle=C.woodEdge;ctx.fillRect(s.x,s.y+7,s.w,4);
+    // rounded end caps so the drop reads as a real desk edge you could fall off
+    ctx.fillStyle=C.woodEdge; ctx.fillRect(s.x,s.y,9,s.h); ctx.fillRect(s.x+s.w-9,s.y,9,s.h);
+    ctx.fillStyle="rgba(0,0,0,.16)";
+    ctx.fillRect(s.x+9,s.y+11,10,s.h-11); ctx.fillRect(s.x+s.w-19,s.y+11,10,s.h-11);
+    ctx.strokeStyle="rgba(122,84,41,.30)"; ctx.lineWidth=2;
+    for(let i=0;i<7;i++){
+      const y=s.y+26+i*30;
+      ctx.beginPath(); ctx.moveTo(s.x,y);
+      ctx.bezierCurveTo(s.x+s.w*.3,y+7,s.x+s.w*.6,y-7,s.x+s.w,y+3);
+      ctx.stroke();
+    }
+  }
+}
+
+/* Wind you can see. Drawn UNDER everything else so the streaks never cross the figure —
+   a zone that paints over the player reads as a bug, not as air. */
+function drawZone(z){
+  const up = z.ay<0, mag = Math.hypot(z.ax,z.ay);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(z.x,z.y,z.w,z.h); ctx.clip();
+  // ⚠ RADIAL, not a linear gradient across the box. A linear one fills the clip rect edge to
+  // edge, so the zone's own boundary shows up as a hard vertical seam down the middle of the
+  // room — it read as a rendering bug in the first capture. Air has no edges.
+  const zx=z.x+z.w/2, zy=z.y+z.h*(up?0.62:0.5), zr=Math.max(z.w,z.h)*0.62;
+  const g=ctx.createRadialGradient(zx,zy,8,zx,zy,zr);
+  g.addColorStop(0,"rgba("+THEME.glow+",.15)"); g.addColorStop(1,"rgba("+THEME.glow+",0)");
+  ctx.fillStyle=g; ctx.fillRect(z.x,z.y,z.w,z.h);
+  ctx.strokeStyle="rgba("+THEME.glow+",.40)"; ctx.lineWidth=2; ctx.lineCap="round";
+  const N=9, sp=(mag/1500)*260;
+  // arrows fade out toward the zone's sides so the clip edge never draws a straight line
+  const edge=(v,lo,hi)=>clamp(Math.min(v-lo,hi-v)/44,0,1);
+  for(let i=0;i<N;i++){
+    if(up){
+      const x = z.x+((i*137)%z.w);
+      const y = z.y+z.h - ((G.t*sp + i*97) % (z.h+70));
+      ctx.globalAlpha = edge(x,z.x,z.x+z.w);
+      ctx.beginPath(); ctx.moveTo(x,y+34); ctx.lineTo(x,y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x-6,y+9); ctx.lineTo(x,y); ctx.lineTo(x+6,y+9); ctx.stroke();
+    } else {
+      const y = z.y+((i*83)%z.h);
+      const x = z.x+z.w - ((G.t*sp + i*127) % (z.w+70));
+      ctx.globalAlpha = edge(y,z.y,z.y+z.h);
+      ctx.beginPath(); ctx.moveTo(x+34,y); ctx.lineTo(x,y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+9,y-6); ctx.lineTo(x,y); ctx.lineTo(x+9,y+6); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
 /* The candle is deliberately NOT photoreal — it's a chart candle, same graphic register as
    the lime coins. Desk junk gets photographed; market objects stay drawn. */
 function drawCandle(f){
@@ -1028,7 +1509,7 @@ function drawFoe(f){
   const dead=f.dead>0, k=dead?clamp(f.dead/0.5,0,1):1;
   const art=FOE_ART[f.t], im=useProps && art && (IMGS[art[art.length>1?((f.anim|0)%2):0]]);
   ctx.save();
-  ctx.translate(f.x+f.w/2, f.y+f.h);
+  ctx.translate(f.x+f.w/2, f.y+f.h-(f.hop||0));   // the clip's hop is visual only
   if(dead){ ctx.globalAlpha=k; ctx.scale(1+(1-k)*0.5, k); }
   if(f.dir>0) ctx.scale(-1,1);                     // every sheet is drawn facing left
   if(f.state==="tell") ctx.rotate(Math.sin(G.t*44)*0.05);   // the wind-up before the charge
@@ -1217,9 +1698,10 @@ function drawPlayer(){
 
 /* ============================ HUD ============================ */
 const elCoins=document.getElementById("coins"), elLives=document.getElementById("lives"),
-      elMcap=document.getElementById("mcap");
+      elMcap=document.getElementById("mcap"), elActbar=document.getElementById("actbar");
 function syncHUD(){
   elCoins.textContent=G.got;
+  elActbar.innerHTML = "ACT <b>"+(ACT+1)+"</b>/"+ACTS.length+" · "+ACTS[ACT].name;
   elLives.innerHTML="";
   for(let i=0;i<3;i++){
     const d=document.createElement("div");
@@ -1261,17 +1743,54 @@ async function fetchMcap(){
 }
 fetchMcap(); setInterval(fetchMcap,30000);
 
+/* ============================ ACT SELECT ============================ */
+// Three lives across ~21,000 units is a long ask for someone who arrived from the site to
+// look at a coin. Clearing an act unlocks it forever, RUN IT BACK drops you back into the
+// act you died in, and the title card grows a picker the first time there's anything to pick.
+//
+// ⚠ The BEST % only records on a run started from act one. Otherwise picking act 3 and
+// walking into the box would bank 100%, and the number the whole card is built around would
+// stop meaning "you did the run".
+const UNLOCK_KEY = "unboxed_unlocked";
+let unlocked = Math.min(+(localStorage.getItem(UNLOCK_KEY)||0), 2);
+let chosenAct = 0;
+function markUnlocked(i){
+  if(i>unlocked){ unlocked=Math.min(i,ACTS.length-1); localStorage.setItem(UNLOCK_KEY,unlocked); buildPickers(); }
+}
+function buildPickers(){
+  for(const id of ["pickStart","pickOver"]){
+    const el=document.getElementById(id); if(!el) continue;
+    el.style.display = unlocked>0 ? "flex" : "none";
+    if(!unlocked){ el.innerHTML=""; continue; }
+    el.innerHTML="";
+    ACTS.forEach((a,i)=>{
+      const b=document.createElement("button");
+      const lock=i>unlocked;
+      b.className="actchip"+(i===chosenAct?" on":"")+(lock?" lock":"");
+      b.innerHTML='<span class="n">'+(i+1)+'</span>'+(lock?"LOCKED":a.name);
+      if(!lock) b.addEventListener("click",()=>{ chosenAct=i; buildPickers(); });
+      el.appendChild(b);
+    });
+  }
+  const note=document.getElementById("pickNote");
+  if(note) note.textContent = (unlocked>0 && chosenAct>0)
+    ? "Practice run — BEST only records from Act One." : "";
+}
+
 /* ============================ FLOW ============================ */
-function reset(){
+function reset(from){
   G.t=0; G.got=0; G.lives=3; G.cp=0; G.maxX=0;
+  hideActCard();
+  G.fromAct = from|0;
+  loadAct(G.fromAct);
   G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
   G.foes=foesSrc.map(mkFoe);
   G.bits.length=0;
   Object.assign(G.p,{x:60,y:GY-60,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
-                     roped:false,anchor:null,lastA:null,anim:0,hurt:0,dead:0,airJumps:AIR_JUMPS,
-                     flip:0,landT:0,grabCd:0});
+                     roped:false,anchor:null,lastA:null,plat:null,anim:0,hurt:0,dead:0,
+                     airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
   G.cam.x=0; G.cam.y=G.p.y-VH*0.56; G.shk=0; G.flash=0; G.hitstop=0;
-  G.seq=0; G.packOpen=0; G.goalOpen=1; G.hidePlayer=false;
+  G.seq=0; G.packOpen=0; G.goalOpen=1; G.hidePlayer=false; G.carded=false;
   syncHUD();
 }
 // The title shot. Wide screens put the card on the right, so the pack goes left of centre and
@@ -1283,14 +1802,18 @@ function frameTitle(){
   G.cam.y = wide ? (GY-PACK_H/2)-VH*0.52 : (GY-PACK_H)-VH*0.09;
 }
 function start(){ ac(); document.getElementById("startScreen").classList.remove("on");
-  reset(); frameTitle(); G.mode="intro"; }
+  reset(chosenAct); frameTitle(); G.mode="intro"; }
 function restart(){ document.getElementById("overScreen").classList.remove("on");
-  reset(); frameTitle(); G.mode="intro"; }
+  reset(chosenAct); frameTitle(); G.mode="intro"; }
 document.getElementById("startBtn").addEventListener("click", start);
 document.getElementById("againBtn").addEventListener("click", restart);
-reset(); frameTitle(); G.mode="start";
+buildPickers();
+reset(chosenAct); frameTitle(); G.mode="start";
 
 /* dev bridge — STRIP BEFORE DEPLOY */
+// ⚠ The level bindings are GETTERS. They are reassigned wholesale every time an act loads,
+// so a plain {solids} snapshot would hand the tests act 1's geometry forever — and every
+// solvability assertion would keep passing against a level nobody is playing.
 /* dev bridge stripped by deploy.sh */
 })();
 </script>
