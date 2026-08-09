@@ -49,6 +49,8 @@ canvas{display:block;position:absolute;inset:0}
   color:var(--paper)}
 #actLine{font-size:12px;font-weight:600;line-height:1.4;margin-top:10px;max-width:330px;
   color:var(--paper);opacity:.72;margin-left:auto;margin-right:auto}
+#actGrade{margin-top:16px;font-size:10px;font-weight:900;letter-spacing:.2em;
+  color:var(--void);background:var(--lime-hot);display:inline-block;padding:6px 12px}
 @media (max-width:620px){ #actName{font-size:30px} }
 .life{width:13px;height:13px;border-radius:3px;background:var(--lime-hot);box-shadow:0 0 0 2px rgba(11,11,13,.55)}
 .life.off{background:transparent;box-shadow:inset 0 0 0 2px rgba(242,240,236,.35)}
@@ -178,6 +180,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     <div id="actNum">ACT TWO</div>
     <div id="actName">THE CABLE RUN</div>
     <div id="actLine"></div>
+    <div id="actGrade"></div>
   </div>
 </div>
 
@@ -188,7 +191,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     <div class="quote" id="vladLine" style="font-size:15px;font-weight:700;font-style:italic;line-height:1.35;margin-top:10px">“They keep underestimating us, Vlad.”</div>
     <div class="byline" style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;opacity:.5;margin-top:7px;font-weight:700">— Vlad Tenev, to his action figure</div>
     <div class="statrow" style="display:flex;gap:16px;margin-top:14px;border-top:2px solid rgba(11,11,13,.15);padding-top:10px">
-      <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">$VLAD</span><b id="oCoins" style="font-size:19px;font-weight:900">0</b></div>
+      <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">$VLAD</span><b id="oCoins" style="font-size:19px;font-weight:900">0</b><span id="oGrade" style="display:block;font-size:8.5px;font-weight:900;letter-spacing:.14em;margin-top:2px;color:#5B7A00"></span></div>
       <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Furthest</span><b id="oDist" style="font-size:19px;font-weight:900">0%</b></div>
       <div style="flex:1"><span style="display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;font-weight:700">Best</span><b id="oBest" style="font-size:19px;font-weight:900">0%</b></div>
     </div>
@@ -320,7 +323,7 @@ const A1_COINS = [[360,GY-140],[640,GY-130],[830,GY-190],[1180,GY-160],[1260,GY-
   [2790,GY-60],[2900,GY-114],[3020,GY-170],[3140,GY-120],[3260,GY-66],
   [3700,GY-190],[3960,GY-90],[4200,GY-146],[4720,GY-120],[4960,GY-200],
   [5220,GY-286],[5460,GY-200],[5940,GY-110],[6160,GY-168],
-  [6420,GY-290]]   // HOGTIE gate: only reachable off the tied charger;
+  [6420,GY-290]]   // high over the home straight — the tied charger is the easy line to it;
 // Desk junk with opinions. (t, spawn x, surface y, patrol left, patrol right)
 //   walker   — paces its stretch of desk, turns at the bounds. Stompable.
 //   charger  — sits still until you're close, telegraphs, then runs you down. Stompable.
@@ -364,6 +367,7 @@ const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104
    08-06 and the rope grabs itself. Tying has to fall out of an input the player already
    has, so it falls out of the stomp. */
 const TIE_TIME=5.5, TIE_WARN=1.3, TIE_JUMP=-940, TIE_H=16;
+const LIFE_EVERY=50;                 // coins per extra life
 const FOE_CLIP=150, FOE_HUNT=94, HUNT_SEE=460;
 
 /* ---------------- ACT 2 — THE CABLE RUN ---------------- */
@@ -412,7 +416,7 @@ const A2_COINS = [[300,GY-110],[560,GY-160],[790,GY-120],
   [4050,GY-130],[4280,GY-184],[4510,GY-130],[4730,GY-210],
   [4980,GY-90],[5210,GY-170],[5510,GY-236],[5540,GY-190],[5730,GY-156],
   [6040,GY-100],[6350,GY-140],[6570,GY-210],[6850,GY-110],
-  [6880,GY-300]]   // HOGTIE gate: only off the tied charger at 6300..6860;
+  [6880,GY-300]]   // ditto — spring off the tied charger or take the long line off the brick;
 const A2_FOES = [
   F("clip",    620,GY-18,  200, 900),
   F("clip",   1760,GY-18, 1560,2160),
@@ -471,8 +475,9 @@ const A3_COINS = [[360,GY-150],[610,GY-210],[830,GY-130],
   [4055,GY-130],[4285,GY-200],[4505,GY-270],[4725,GY-340],[4780,GY-260],
   [5060,GY-80],[5200,GY-85],[5460,GY-200],[5810,GY-260],[6030,GY-190],
   [6300,GY-80],[6440,GY-85],[6690,GY-150],[6930,GY-220],[7150,GY-150],
-  [1090,GY-300]]   // HOGTIE gate: hangs over the 440 chasm ABOVE the rope line — spring off
-                   // the tied knockoff, take it mid-air, drop onto the anchor at 1080;
+  [1180,GY-160]]   // ⚠ was (1090,GY-300), hanging over the 440 chasm above the rope line —
+                   // and NOTHING could reach it, tie included. test/arcs.mjs caught it by
+                   // flying at it; the analytic model in coins.mjs had passed it.;
 const A3_FOES = [
   F("knockoff", 600,GY-40,  180, 920),
   F("walker",  1800,GY-30, 1560,2200),
@@ -656,7 +661,8 @@ const G = {
      airJumps:0,flip:0,landT:0,grabCd:0,plat:null,lastPlat:null,spring:0},
   cam:{x:0,y:0}, coins:[], bits:[], foes:[],
   got:0, lives:3, cp:0, maxX:0, shk:0, flash:0, hitstop:0,
-  seq:0, packOpen:0, goalOpen:1, hidePlayer:false, carded:false, fromAct:0,
+  seq:0, packOpen:0, goalOpen:1, hidePlayer:false, carded:false, fromAct:0, pop:null,
+  nextLife:LIFE_EVERY, actGot:0, actTotal:0, toast:"", toastT:0, chain:0, chainT:0,
   best:+(localStorage.getItem('unboxed_best')||0),
 };
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -700,6 +706,8 @@ const SFX = {
   creak(){ tone(210,150,.18,"triangle",.05); noise(.1,.03,600); },
   tie(){ noise(.14,.05,2600); tone(1400,600,.09,"triangle",.035); },
   sproing(){ tone(300,1500,.16,"triangle",.09); tone(600,2100,.12,"square",.04,.03); },
+  oneup(){ [0,.08,.16,.26].forEach((d,i)=>tone(660+i*220,880+i*260,.14,"square",.06,d)); },
+  chain(n){ if(n>0) tone(700+n*180, 1100+n*220, .09, "square", .05); },
   fan(){ noise(.3,.02,240); },
 };
 
@@ -910,6 +918,8 @@ function frame(now){
   else if(G.mode==="clear") stepClear(dt);
   G.shk=lerp(G.shk,0,clamp(dt*9,0,1));
   G.flash=Math.max(0,G.flash-dt*3);
+  if(G.toastT>0) G.toastT-=dt;
+  if(G.pop && G.pop.t>0) G.pop.t-=dt;
   stepBits(dt);
   draw();
   jumpEdge=false; stringEdge=false;
@@ -942,10 +952,11 @@ function stepClear(dt){
   G.seq += dt;
   if(!G.carded && G.seq>0.22){
     G.carded=true;
+    const wasName=ACTS[ACT].n, wasGot=G.actGot, wasTot=G.actTotal;
     loadAct(ACT+1);
     enterAct();
     G.packOpen=0; G.hidePlayer=true;      // sealed again, on the new floor
-    showActCard();
+    showActCard(wasName+" — "+wasGot+"/"+wasTot+" · "+grade(wasGot,wasTot));
   }
   // camera is pinned on the pack rather than lerped: the player is inside it and has no
   // position worth following, and updateCamera would drift the shot for two whole seconds
@@ -958,7 +969,7 @@ function enterAct(){
   markUnlocked(ACT);
   G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
   G.foes=foesSrc.map(mkFoe); clearTies();
-  G.cp=0; G.maxX=0; G.goalOpen=1;
+  G.cp=0; G.maxX=0; G.goalOpen=1; G.actGot=0; G.actTotal=coinsSrc.length;
   Object.assign(p,{x:checkpoints[0],y:GY-90,vx:0,vy:0,face:1,ground:false,coyote:0,buffer:0,
                    roped:false,anchor:null,lastA:null,plat:null,lastPlat:null,spring:0,hurt:0,dead:0,
                    airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
@@ -966,10 +977,12 @@ function enterAct(){
   syncHUD();
 }
 const elAct = document.getElementById("actCard");
-function showActCard(){
+function showActCard(graded){
   document.getElementById("actNum").textContent  = ACTS[ACT].n;
   document.getElementById("actName").textContent = ACTS[ACT].name;
   document.getElementById("actLine").textContent = ACTS[ACT].line;
+  const g=document.getElementById("actGrade");
+  g.textContent = graded||""; g.style.display = graded?"":"none";
   elAct.classList.add("on");
 }
 function hideActCard(){ elAct.classList.remove("on"); }
@@ -1022,7 +1035,7 @@ function update(dt){
     else fireString();                        // a deliberate press ignores the auto gates
   }
   const auto=autoAnchor(p);
-  if(auto) fireString(auto);
+  if(auto){ fireString(auto); G.pop={x:auto.x,y:auto.y,t:0.16}; }
 
   stepZones(p,dt);          // fans and the open window — applies on the rope too
 
@@ -1096,7 +1109,8 @@ function update(dt){
     const wasGround=p.ground;
     moveAxis(p,p.vx*dt,0);
     moveAxis(p,0,p.vy*dt);
-    if(!wasGround && p.ground){ SFX.land(); burst(p.x+p.w/2,p.y+p.h,6,C.paper); p.landT=0.13; }
+    if(!wasGround && p.ground){ SFX.land(); burst(p.x+p.w/2,p.y+p.h,6,C.paper); p.landT=0.13;
+                                G.chain=0; }   // touching down ends the chain
   }
 
   p.anim += dt*(p.ground?Math.abs(p.vx)/48:6);
@@ -1118,7 +1132,15 @@ function update(dt){
   for(const c of G.coins){
     if(c.got) continue;
     if(segBox(kx0,ky0,kx1,ky1,c.x,c.y,24,26)){
-      c.got=true; G.got++; burst(c.x,c.y,7,C.limeHot); SFX.coin(); syncHUD();
+      c.got=true; G.got++; G.actGot++; burst(c.x,c.y,7,C.limeHot); SFX.coin();
+      // 50 collected = a life. Loudly, because a pickup that only moves a counter is not a
+      // decision — this is what makes going for the awkward one worth the risk.
+      if(G.got>=G.nextLife){
+        G.nextLife += LIFE_EVERY; G.lives++; G.flash=0.7; G.shk=9;
+        burst(c.x,c.y,22,C.limeHot); SFX.oneup();
+        G.toast="+1 LIFE"; G.toastT=1.8;
+      }
+      syncHUD();
     }
   }
   for(let i=0;i<checkpoints.length;i++) if(p.x>checkpoints[i]) G.cp=i;
@@ -1132,7 +1154,10 @@ function update(dt){
 
 function updateCamera(dt){
   const p=G.p;
-  const wantX=clamp(p.x-VW*0.38+p.face*70,-40,LEVEL_END-VW+40);
+  // lookahead: facing gives the intent, velocity gives the commitment. Facing alone snaps the
+  // whole frame across the moment you tap the other way; velocity alone lags a standing turn.
+  const lead = p.face*54 + clamp(p.vx*0.22,-64,64);
+  const wantX=clamp(p.x-VW*0.38+lead,-40,LEVEL_END-VW+40);
   const wantY=clamp(p.y-VH*0.56,-420,180);
   G.cam.x=lerp(G.cam.x,wantX,clamp(dt*6.5,0,1));
   G.cam.y=lerp(G.cam.y,wantY,clamp(dt*4.2,0,1));
@@ -1207,8 +1232,16 @@ function stepFoes(dt){
     // fast fall clears a 30-unit body inside one frame and the depth test reads as a side hit
     if(f.t!=="candle" && p.vy>60 && (p.py+p.h) <= f.y+10){
       tieFoe(f); p.vy=STOMP_V; p.airJumps=AIR_JUMPS; p.buffer=0;
-      G.hitstop=0.06; G.shk=10;
-      burst(f.x+f.w/2,f.y,12,C.limeHot); SFX.stomp(); SFX.tie();
+      G.hitstop=0.06+Math.min(G.chain,4)*0.012; G.shk=10+Math.min(G.chain,4)*2;
+      burst(f.x+f.w/2,f.y,12+G.chain*4,C.limeHot);
+      SFX.stomp(); SFX.tie(); SFX.chain(G.chain);
+      if(G.chain>0){                          // every extra link in the chain pays a coin
+        G.got++; G.actGot++; G.toast="x"+(G.chain+1); G.toastT=1.0;
+        if(G.got>=G.nextLife){ G.nextLife+=LIFE_EVERY; G.lives++; G.flash=0.7; SFX.oneup();
+                               G.toast="+1 LIFE"; G.toastT=1.8; }
+        syncHUD();
+      }
+      G.chain++; G.chainT=1.0;
     } else loseLife();
   }
 }
@@ -1246,7 +1279,8 @@ function loseLife(silent){
   const p=G.p;
   if(p.dead>0) return;
   p.dead=0.55; p.roped=false; p.vx=0; p.vy=-260;
-  G.lives--; G.flash=1; G.shk=14;
+  G.lives--; G.flash=1; G.shk=14; G.hitstop=0.09;   // the stomp had this and dying did not
+  G.chain=0;
   if(!silent) SFX.hurt();
   syncHUD();
 }
@@ -1265,6 +1299,12 @@ function respawn(){
 
 // Progress is across the WHOLE run now, not the act you happen to be in — the act you
 // cleared is banked, so "best 62%" means the same thing it did before there were three.
+// LOOSE / NEAR MINT / MINT — collector-grade language, which is the whole fiction of the token
+function grade(got,total){
+  if(!total) return "";
+  const f=got/total;
+  return f>=1 ? "MINT" : f>=0.75 ? "NEAR MINT" : f>=0.4 ? "PLAYED" : "LOOSE";
+}
 function pct(){
   return Math.round(clamp((ACT + clamp(G.maxX/GOAL.x,0,1))/ACTS.length,0,1)*100);
 }
@@ -1283,6 +1323,8 @@ function endRun(won){
   document.getElementById("overKick").textContent  = won ? "Back on the shelf" : ACTS[ACT].fall;
   document.getElementById("overTitle").textContent = won?"MADE IT HOME":"OUT OF LIVES";
   document.getElementById("oCoins").textContent = G.got;
+  const gr=document.getElementById("oGrade");
+  gr.textContent = grade(G.actGot,G.actTotal); gr.style.display = G.actTotal?"":"none";
   document.getElementById("oDist").textContent  = d+"%";
   document.getElementById("oBest").textContent  = G.best+"%";
   document.getElementById("vladLine").textContent = won ? "“Eventually, we’ll win.”"
@@ -1303,6 +1345,12 @@ function draw(){
   drawGoal();
   for(const a of anchors) drawAnchor(a);
   if(G.p.roped) drawRope();
+  if(G.pop && G.pop.t>0){
+    const k=G.pop.t/0.16;
+    ctx.globalAlpha=k*0.85; ctx.strokeStyle=C.limeHot; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(G.pop.x,G.pop.y,10+(1-k)*26,0,6.3); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
   for(const c of G.coins) if(!c.got) drawCoin(c);
   for(const f of G.foes) drawFoe(f);
   // sealed on the title card, cracking open on CLIMB OUT, gone once he's out
@@ -1316,6 +1364,14 @@ function draw(){
   ctx.globalAlpha=1;
   ctx.restore();
   if(G.flash>0){ ctx.globalAlpha=G.flash*.5; ctx.fillStyle=C.void; ctx.fillRect(0,0,VW,VH); ctx.globalAlpha=1; }
+  if(G.toastT>0){
+    const k=clamp(G.toastT/1.8,0,1);
+    ctx.globalAlpha=Math.min(1,k*2.4);
+    ctx.font="900 26px -apple-system,Arial"; ctx.textAlign="center";
+    ctx.fillStyle=C.void;    ctx.fillText(G.toast, VW/2+2, VH*0.34-(1-k)*34+2);
+    ctx.fillStyle=C.limeHot; ctx.fillText(G.toast, VW/2,   VH*0.34-(1-k)*34);
+    ctx.globalAlpha=1; ctx.textAlign="left";
+  }
   ctx.restore();
 }
 
@@ -1740,6 +1796,13 @@ function drawPlayer(){
   ctx.scale(p.face,1);
   if(p.dead>0) ctx.rotate(G.t*7);
   else if(p.flip>0) ctx.rotate((1-p.flip)*Math.PI*2);   // one clean somersault
+  // squash & stretch. p.landT is already the 0.13s landing window; reuse it rather than adding
+  // a second timer that can drift out of sync with the frame the state machine picked.
+  if(p.landT>0){ const k=p.landT/0.13; ctx.scale(1+k*0.16, 1-k*0.18); }
+  else if(!p.ground && p.dead<=0){
+    const st=clamp(-p.vy/900,0,1)*0.10;      // taut on the way up, never on the way down
+    if(st>0.004) ctx.scale(1-st, 1+st);
+  }
   const air=!p.ground, run=p.ground&&Math.abs(p.vx)>16;
   const c=run?Math.sin(p.anim):0;
   ctx.rotate(clamp(p.vx/RUN_MAX,-1,1)*.13);
@@ -1809,7 +1872,8 @@ function syncHUD(){
   elCoins.textContent=G.got;
   elActbar.innerHTML = "ACT <b>"+(ACT+1)+"</b>/"+ACTS.length+" · "+ACTS[ACT].name;
   elLives.innerHTML="";
-  for(let i=0;i<3;i++){
+  const slots=Math.max(3,G.lives);      // extra lives have to be VISIBLE or they aren't a reward
+  for(let i=0;i<slots;i++){
     const d=document.createElement("div");
     d.className="life"+(i<G.lives?"":" off");
     elLives.appendChild(d);
@@ -1886,6 +1950,7 @@ function buildPickers(){
 /* ============================ FLOW ============================ */
 function reset(from){
   G.t=0; G.got=0; G.lives=3; G.cp=0; G.maxX=0;
+  G.nextLife=LIFE_EVERY; G.toast=""; G.toastT=0; G.chain=0; G.chainT=0;
   hideActCard();
   G.fromAct = from|0;
   loadAct(G.fromAct);
@@ -1897,6 +1962,7 @@ function reset(from){
                      airJumps:AIR_JUMPS,flip:0,landT:0,grabCd:0});
   G.cam.x=0; G.cam.y=G.p.y-VH*0.56; G.shk=0; G.flash=0; G.hitstop=0;
   G.seq=0; G.packOpen=0; G.goalOpen=1; G.hidePlayer=false; G.carded=false;
+  G.actGot=0; G.actTotal=coinsSrc.length;
   syncHUD();
 }
 // The title shot. Wide screens put the card on the right, so the pack goes left of centre and
