@@ -498,19 +498,28 @@ const ACTS = [
    solids:A1_SOLIDS, anchors:A1_ANCHORS, coins:A1_COINS, foes:A1_FOES, zones:[],
    checkpoints:[40,1460,2300,3600,4660,5800], goal:{x:6520,y:GY-96,w:76,h:96}, end:6700,
    theme:{ground:"wood", wall:"#E8DFCE", wallDark:"#D6CAB3", bg:.85, glow:"194,230,25",
-          dust:"#FFF6DC", dustA:.14, tint:null}},
+          dust:"#FFF6DC", dustA:.14, tint:null,
+          fg:[{k:"pen",   x:1600, w:420, h:44,  up:12, a:.34},
+              {k:"sticky",x:4600, w:230, h:180, up:66, a:.30},
+              {k:"mugrim",x:8300, w:300, h:150, up:34, a:.28}]}},
 
   {name:"THE CABLE RUN", fall:"Lost behind the monitor", n:"ACT TWO", line:"Behind the monitor. The bricks move and the fans blow.",
    solids:A2_SOLIDS, anchors:A2_ANCHORS, coins:A2_COINS, foes:A2_FOES, zones:A2_ZONES,
    checkpoints:[40,1460,2660,3940,5100,6200], goal:{x:6900,y:GY-96,w:76,h:96}, end:7100,
    theme:{ground:"cable", wall:"#232A33", wallDark:"#12161C", bg:.16, glow:"90,200,255",
-          dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)"}},
+          dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)",
+          fg:[{k:"cable", x:1500, w:520, h:22, up:96, a:.5},
+              {k:"cable", x:5200, w:430, h:18, up:70, a:.45},
+              {k:"pen",   x:9200, w:400, h:38, up:10, a:.5}]}},
 
   {name:"THE SHELF", fall:"Knocked off the shelf", n:"ACT THREE", line:"Up with the boxed figures. Nothing up here holds for long.",
    solids:A3_SOLIDS, anchors:A3_ANCHORS, coins:A3_COINS, foes:A3_FOES, zones:A3_ZONES,
    checkpoints:[40,1440,2640,3960,5340,6580], goal:{x:7420,y:GY-96,w:76,h:96}, end:7620,
    theme:{ground:"shelf", wall:"#F6EFE0", wallDark:"#E4D3B2", bg:.58, glow:"255,214,120",
-          dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)"}},
+          dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)",
+          fg:[{k:"lip",   x:-600, w:16000,h:22, up:8,  a:.22},
+              {k:"sticky",x:3200, w:210, h:160, up:58, a:.24},
+              {k:"pen",   x:7600, w:420, h:42, up:16, a:.26}]}},
 ];
 // live bindings — reassigned wholesale by loadAct(), read everywhere else
 let ACT = 0, solids = [], anchors = [], coinsSrc = [], foesSrc = [], zones = [];
@@ -671,7 +680,28 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 
 /* ============================ AUDIO ============================ */
 let AC=null, muted=false;
-function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+// Two buses, not one destination. SFX ducks the music sidechain-style; without the split there
+// is nothing to duck and the coin blips get lost inside the loop.
+let SFXG=null, MUSG=null;
+function ac(){
+  if(!AC){
+    try{
+      AC=new (window.AudioContext||window.webkitAudioContext)();
+      SFXG=AC.createGain(); SFXG.gain.value=1;   SFXG.connect(AC.destination);
+      MUSG=AC.createGain(); MUSG.gain.value=1;   MUSG.connect(AC.destination);
+    }catch(e){}
+  }
+  return AC;
+}
+// dip the music under whatever just happened, then let it back up
+function duck(amt){
+  if(!MUSG||!AC||muted) return;
+  const t=AC.currentTime;
+  MUSG.gain.cancelScheduledValues(t);
+  MUSG.gain.setValueAtTime(MUSG.gain.value,t);
+  MUSG.gain.linearRampToValueAtTime(1-(amt||0.4),t+0.012);
+  MUSG.gain.linearRampToValueAtTime(1,t+0.30);
+}
 function tone(f0,f1,d,ty,g0,dl){
   const a=ac(); if(!a||muted) return;
   const t=a.currentTime+(dl||0), o=a.createOscillator(), g=a.createGain();
@@ -679,7 +709,8 @@ function tone(f0,f1,d,ty,g0,dl){
   if(f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+d);
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(g0||.07,t+.008);
   g.gain.exponentialRampToValueAtTime(.0001,t+d);
-  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+d+.02);
+  o.connect(g); g.connect(SFXG); o.start(t); o.stop(t+d+.02);
+  duck(0.35);
 }
 function noise(d,g0,hp){
   const a=ac(); if(!a||muted) return;
@@ -688,7 +719,8 @@ function noise(d,g0,hp){
   const s=a.createBufferSource(); s.buffer=buf;
   const f=a.createBiquadFilter(); f.type="highpass"; f.frequency.value=hp||400;
   const g=a.createGain(); g.gain.value=g0||.12;
-  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+  s.connect(f); f.connect(g); g.connect(SFXG); s.start();
+  duck(0.35);
 }
 const SFX = {
   jump(){ tone(360,700,.10,"square",.05); },
@@ -711,6 +743,86 @@ const SFX = {
   fan(){ noise(.3,.02,240); },
 };
 
+/* ============================ MUSIC ============================ */
+/* One 4-bar loop per act, generated. No files, same as every sound here.
+   ⚠ Scheduled against AudioContext.currentTime with a lookahead, NOT off rAF. setTimeout jitter
+   is tens of milliseconds and the game already drops frames on a phone; sequencing music off the
+   render loop is audibly drunk. The timer only decides WHEN to queue notes — every note's start
+   time is exact. */
+const BAR = 8;                    // eighth notes per bar
+const STEPS = BAR*4;              // a 4-bar loop
+// bar roots (semitones from the act's key) give the loop somewhere to go over four bars
+const MUSIC = [
+  { bpm:112, key:220.00, gain:.050, wave:"triangle", bassWave:"sine",
+    scale:[0,2,4,7,9], bars:[0,0,5,7],           // A major pentatonic — warm, plucky, daylight
+    arp:[0,2,4,2, 3,2,1,2], bassOct:-24, lead:0, tick:.018 },
+  { bpm:96,  key:146.83, gain:.055, wave:"sawtooth", bassWave:"sine",
+    scale:[0,3,5,7,10], bars:[0,0,-2,3],          // D minor pentatonic, low — behind the monitor
+    arp:[0,null,2,null, 1,null,3,null], bassOct:-12, lead:-12, tick:.010 },
+  { bpm:126, key:523.25, gain:.042, wave:"triangle", bassWave:"triangle",
+    scale:[0,2,4,7,9], bars:[0,5,7,5],            // C major pentatonic, high — a music box
+    arp:[0,2,4,7, 4,2,4,2], bassOct:-36, lead:0, tick:.014 },
+];
+let musStep=0, musNext=0, musTimer=null, musAct=-1;
+const semis = n => Math.pow(2, n/12);
+function mtone(f,dur,when,wave,g0,pan){
+  const a=AC; if(!a||muted) return;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=wave; o.frequency.setValueAtTime(f,when);
+  g.gain.setValueAtTime(0,when);
+  g.gain.linearRampToValueAtTime(g0,when+0.012);
+  g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+  o.connect(g); g.connect(MUSG); o.start(when); o.stop(when+dur+0.02);
+}
+function mnoise(dur,when,g0){
+  const a=AC; if(!a||muted) return;
+  const n=Math.max(1,Math.floor(a.sampleRate*dur)), b=a.createBuffer(1,n,a.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);
+  const src=a.createBufferSource(); src.buffer=b;
+  const f=a.createBiquadFilter(); f.type="highpass"; f.frequency.value=5200;
+  const g=a.createGain(); g.gain.value=g0;
+  src.connect(f); f.connect(g); g.connect(MUSG); src.start(when);
+}
+/* What does step N of act A play? Pure — no audio, no clock. Split out so the pattern can be
+   tested: a headless browser reports the AudioContext as "running" but its currentTime never
+   advances (there is no audio device), so the SCHEDULER's timing is not observable in CI. The
+   sequence is, and that is the part with the musical decisions in it. */
+function musNoteAt(act, step){
+  const m=MUSIC[act]; if(!m) return null;
+  const st=((step%STEPS)+STEPS)%STEPS, bar=(st/BAR)|0, beat=st%BAR;
+  const rootS=m.bars[bar], deg=m.arp[beat%m.arp.length], spb=60/m.bpm/2;
+  const oct = beat>=6 ? 12 : 0;               // lift the tail of the bar so the loop breathes
+  return {
+    spb, bar, beat,
+    arp:  deg==null ? null : m.key*semis(rootS+m.scale[deg%m.scale.length]+oct+m.lead),
+    arpLen: deg==null ? 0 : spb*(deg===0?2.2:1.6),
+    bass: (beat===0||beat===4) ? m.key*semis(rootS+m.bassOct) : null,
+    tick: (beat===2||beat===6),
+  };
+}
+function musStepAt(when){
+  const m=MUSIC[musAct], n=musNoteAt(musAct, musStep); if(!m||!n) return;
+  if(n.arp)  mtone(n.arp,  n.arpLen,  when, m.wave,     m.gain);
+  if(n.bass) mtone(n.bass, n.spb*3.2, when, m.bassWave, m.gain*1.5);
+  if(n.tick) mnoise(0.03, when, m.tick);
+  musStep++;
+}
+function musicWants(){ return G.mode==="play"||G.mode==="intro"||G.mode==="clear"||G.mode==="outro"; }
+function musicTick(){
+  if(!AC||muted||!musicWants()) return;
+  const m=MUSIC[musAct]; if(!m) return;
+  const spb=60/m.bpm/2;
+  if(musNext<AC.currentTime) musNext=AC.currentTime+0.06;   // recover from a backgrounded tab
+  while(musNext < AC.currentTime+0.20){ musStepAt(musNext); musNext+=spb; }
+}
+function musicStart(act){
+  if(!ac()) return;
+  if(musAct===act && musTimer) return;
+  musAct=act; musStep=0; musNext=AC.currentTime+0.08;
+  if(!musTimer) musTimer=setInterval(musicTick,25);
+}
+function musicStop(){ if(musTimer){ clearInterval(musTimer); musTimer=null; } musAct=-1; }
+
 /* ============================ INPUT ============================ */
 const K = {left:false,right:false,jump:false,string:false};
 let jumpEdge=false, stringEdge=false;
@@ -720,7 +832,13 @@ addEventListener("keydown",e=>{
   if(["ArrowRight","KeyD"].includes(e.code)) K.right=true;
   if(["Space","ArrowUp","KeyW"].includes(e.code)){ K.jump=true; jumpEdge=true; e.preventDefault(); }
   if(["KeyJ","ShiftLeft","ShiftRight"].includes(e.code)){ K.string=true; stringEdge=true; }
-  if(e.code==="KeyM") muted=!muted;
+  if(e.code==="KeyM"){
+    muted=!muted;
+    // ⚠ notes are scheduled up to 200ms ahead. Bailing out of mtone() only stops FUTURE notes;
+    // the ones already queued play regardless. Mute has to move the bus.
+    if(MUSG&&AC){ MUSG.gain.cancelScheduledValues(AC.currentTime); MUSG.gain.value = muted?0:1; }
+    if(SFXG) SFXG.gain.value = muted?0:1;
+  }
   if(e.code==="KeyR" && G.mode==="play") loseLife(true);
   if(e.code==="Enter" && G.mode!=="play") (G.mode==="over"?restart:start)();
 });
@@ -911,6 +1029,7 @@ function frame(now){
   // and the loops still pulse during the unboxing. It used to tick inside update(), which
   // froze it for the entire intro and outro.
   if(G.mode!=="start") G.t+=dt;
+  if(musicWants()) musicStart(ACT); else if(musAct>=0) musicStop();
   if(G.hitstop>0) G.hitstop-=dt;
   else if(G.mode==="play")  update(dt);
   else if(G.mode==="intro") stepIntro(dt);
@@ -955,6 +1074,7 @@ function stepClear(dt){
     const wasName=ACTS[ACT].n, wasGot=G.actGot, wasTot=G.actTotal;
     loadAct(ACT+1);
     enterAct();
+    musicStop(); musicStart(ACT);         // each act gets its own loop
     G.packOpen=0; G.hidePlayer=true;      // sealed again, on the new floor
     showActCard(wasName+" — "+wasGot+"/"+wasTot+" · "+grade(wasGot,wasTot));
   }
@@ -1363,6 +1483,7 @@ function draw(){
   }
   ctx.globalAlpha=1;
   ctx.restore();
+  drawForeground();
   if(G.flash>0){ ctx.globalAlpha=G.flash*.5; ctx.fillStyle=C.void; ctx.fillRect(0,0,VW,VH); ctx.globalAlpha=1; }
   if(G.toastT>0){
     const k=clamp(G.toastT/1.8,0,1);
@@ -1373,6 +1494,54 @@ function draw(){
     ctx.globalAlpha=1; ctx.textAlign="left";
   }
   ctx.restore();
+}
+
+/* THE FOREGROUND LAYER — desk furniture in front of the camera, at 1.55x parallax.
+   Everything else sits on one plane, and the entire joke is that he is six and a half inches
+   tall. Depth is what sells scale: one object moving faster than the world and cropping off the
+   edge of frame does more for "he is tiny" than any amount of prop art.
+
+   ⚠ DARK SILHOUETTES, not photo cutouts, and no ctx.filter blur. A photo up here competes with
+   the hero for focus and reads as something you can land on; a blur filter over a 900px region
+   costs real milliseconds on the one device that has to hold 60.
+   ⚠ SMALL, AND HANGING OFF AN EDGE. v1 used pen w:1500 h:120 against a 554-unit-wide view — one
+   object covered the whole lower half of the screen at 40% and read as FOG, not as an object.
+   A foreground prop wants about a quarter of the frame and wants the frame to CROP it; `up` is
+   how far its top edge sits above the bottom of the screen, so most of it is off-frame by
+   design. Only a screenshot catches this; the numbers were happy either way.
+   ⚠ o.x is in FOREGROUND space, not world space. At 1.55x an object arrives when the camera is
+   at roughly o.x/1.55, so these run to about 1.55x the level length.
+   ⚠ Drawn AFTER ctx.restore(), outside the world transform — it does its own camera maths. */
+function drawForeground(){
+  const list=THEME.fg; if(!list) return;
+  const PAR=1.55, tint=THEME.ground==="cable" ? "6,8,12" : THEME.ground==="shelf" ? "72,55,28" : "44,28,10";
+  for(const o of list){
+    const x = o.x - G.cam.x*PAR;
+    if(x > VW+60 || x + o.w < -60) continue;      // most frames draw nothing at all
+    const y = VH - o.up - G.cam.y*0.22;
+    ctx.fillStyle="rgba("+tint+","+o.a+")";
+    if(o.k==="pen"){
+      ctx.beginPath();
+      ctx.moveTo(x,y); ctx.lineTo(x+o.w*0.84,y-o.h*0.22);
+      ctx.lineTo(x+o.w,y+o.h*0.26); ctx.lineTo(x+o.w*0.84,y+o.h*0.9);
+      ctx.lineTo(x,y+o.h); ctx.closePath(); ctx.fill();
+    } else if(o.k==="sticky"){
+      ctx.save(); ctx.translate(x+o.w/2,y+o.h/2); ctx.rotate(-0.10);
+      ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h); ctx.restore();
+    } else if(o.k==="mugrim"){
+      ctx.beginPath(); ctx.arc(x+o.w/2, y+o.h*0.5, o.w*0.5, Math.PI*1.03, Math.PI*1.97);
+      ctx.lineTo(x+o.w, y+o.h*3); ctx.lineTo(x, y+o.h*3); ctx.closePath(); ctx.fill();
+    } else if(o.k==="cable"){
+      ctx.strokeStyle="rgba("+tint+","+o.a+")"; ctx.lineWidth=o.h; ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(x, y-o.h*1.6);
+      ctx.bezierCurveTo(x+o.w*0.32, y+o.h*2.4, x+o.w*0.68, y+o.h*2.4, x+o.w, y-o.h*1.2);
+      ctx.stroke();
+    } else {                                       // "lip" — the front edge of the shelf
+      ctx.fillRect(x, y, o.w, o.h*3);
+      ctx.fillStyle="rgba("+tint+","+(o.a*0.55)+")";
+      ctx.fillRect(x, y-o.h*0.30, o.w, o.h*0.30);
+    }
+  }
 }
 
 function drawBackground(){
