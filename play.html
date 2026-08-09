@@ -167,6 +167,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     <div class="body" style="font-size:12px;opacity:.66;margin-top:8px">
       Jump twice for a <b>double jump</b>. The <b>pull-string</b> grabs <b>cable loops</b> on its own.
       Stomp desk junk to <b>hogtie</b> it — a tied toy is a springboard.
+      <b>Three acts</b>, pick any of them.
     </div>
     <div class="actpick" id="pickStart"></div>
     <button class="btn" id="startBtn">CLIMB OUT</button>
@@ -1103,7 +1104,6 @@ function stepClear(dt){
 // everything an act needs on the way in, shared by the transition and by reset()
 function enterAct(){
   const p=G.p;
-  markUnlocked(ACT);
   G.coins=coinsSrc.map(c=>({x:c.x,y:c.y,got:false}));
   G.foes=foesSrc.map(mkFoe); clearTies();
   G.cp=0; G.maxX=0; G.goalOpen=1; G.actGot=0; G.actTotal=coinsSrc.length;
@@ -1508,7 +1508,7 @@ function endRun(won){
     localStorage.setItem("unboxed_best", G.best);
   }
   // ...and RUN IT BACK offers the act you actually died in, not the top of the whole game
-  chosenAct = won ? 0 : Math.min(ACT, unlocked);
+  chosenAct = won ? 0 : ACT;
   buildPickers();
   if(won){ G.flash=1; [0,.09,.18,.3].forEach((dl,i)=>tone(520+i*180,700+i*220,.16,"square",.06,dl)); }
   document.getElementById("overKick").textContent  = won ? "Back on the shelf" : ACTS[ACT].fall;
@@ -2186,36 +2186,38 @@ async function fetchMcap(){
 fetchMcap(); setInterval(fetchMcap,30000);
 
 /* ============================ ACT SELECT ============================ */
-// Three lives across ~21,000 units is a long ask for someone who arrived from the site to
-// look at a coin. Clearing an act unlocks it forever, RUN IT BACK drops you back into the
-// act you died in, and the title card grows a picker the first time there's anything to pick.
+// Three lives across ~21,000 units is a long ask for someone who arrived from the site to look
+// at a coin, so every act is pickable from the title card and RUN IT BACK drops you back into
+// the act you died in.
 //
-// ⚠ The BEST % only records on a run started from act one. Otherwise picking act 3 and
-// walking into the box would bank 100%, and the number the whole card is built around would
-// stop meaning "you did the run".
-const UNLOCK_KEY = "unboxed_unlocked";
-let unlocked = Math.min(+(localStorage.getItem(UNLOCK_KEY)||0), 2);
+// ⚠ ALL THREE ARE OPEN FROM THE START, and that is a reversal. They used to unlock by clearing
+// the one before, with the picker hidden until you'd earned it — which is the tidier design and
+// the wrong one HERE. Chris played the build the shelf boss shipped in and asked "what boss.
+// what level": the act-3 showpiece sits past the last checkpoint, ~20,000 units in, behind a
+// gate he had not cleared. Content nobody reaches may as well not exist, and this is a free
+// browser game embedded in a coin's website — the audience is people with thirty seconds, not
+// people grinding for act three.
+//
+// ⚠ What keeps it honest is that BEST % only records on a run started from act one. Otherwise
+// picking act 3 and walking into the box banks 100%, and the number the whole card is built
+// around stops meaning "you did the run".
+let unlocked = ACTS.length-1;
 let chosenAct = 0;
-function markUnlocked(i){
-  if(i>unlocked){ unlocked=Math.min(i,ACTS.length-1); localStorage.setItem(UNLOCK_KEY,unlocked); buildPickers(); }
-}
 function buildPickers(){
   for(const id of ["pickStart","pickOver"]){
     const el=document.getElementById(id); if(!el) continue;
-    el.style.display = unlocked>0 ? "flex" : "none";
-    if(!unlocked){ el.innerHTML=""; continue; }
+    el.style.display="flex";
     el.innerHTML="";
     ACTS.forEach((a,i)=>{
       const b=document.createElement("button");
-      const lock=i>unlocked;
-      b.className="actchip"+(i===chosenAct?" on":"")+(lock?" lock":"");
-      b.innerHTML='<span class="n">'+(i+1)+'</span>'+(lock?"LOCKED":a.name);
-      if(!lock) b.addEventListener("click",()=>{ chosenAct=i; buildPickers(); });
+      b.className="actchip"+(i===chosenAct?" on":"");
+      b.innerHTML='<span class="n">'+(i+1)+'</span>'+a.name;
+      b.addEventListener("click",()=>{ chosenAct=i; buildPickers(); });
       el.appendChild(b);
     });
   }
   const note=document.getElementById("pickNote");
-  if(note) note.textContent = (unlocked>0 && chosenAct>0)
+  if(note) note.textContent = chosenAct>0
     ? "Practice run — BEST only records from Act One." : "";
 }
 
