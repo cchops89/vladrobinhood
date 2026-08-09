@@ -344,7 +344,7 @@ const A1_FOES = [
   F("charger",4300,GY-34, 3900,4450),
   F("walker",4900,GY-30,  4780,5040),
   F("candle",5300,GY,     5300,5300),
-  F("charger",6200,GY-34, 5920,6450),
+  F("boss",   6150,GY-64, 5920,6450),   // the three-hole punch, before the box
 ];
 const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18], knockoff:[30,40], boss:[64,92]};
 // C2 landed 2026-08-05: real desk junk, no more flat silhouettes next to a photoreal hero.
@@ -352,6 +352,18 @@ const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18],
 // build and sat unused for two days waiting for a reason — acts 2 and 3 are the reason.
 const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"],
                   clip:["clip"], knockoff:["knockoff"], boss:["knockoff"]};
+/* ⚠ The boss's box and art come from the ACT, not from FOE_BOX/FOE_ART. C3 is three different
+   OBJECTS — a hole punch is 1.7:1, a power strip 3:1, a packed figure 1:3.5 — and one shared
+   [w,h] would draw two of the three stretched to nothing, with a hitbox that agrees with none
+   of them. Anything that needs an enemy's real box must call foeBox(), never index FOE_BOX. */
+function foeBox(t){
+  const b = (t==="boss" && ACTS[ACT] && ACTS[ACT].boss) ? ACTS[ACT].boss.box : null;
+  return b || FOE_BOX[t];
+}
+function foeArt(t){
+  const a = (t==="boss" && ACTS[ACT] && ACTS[ACT].boss) ? ACTS[ACT].boss.art : null;
+  return a || FOE_ART[t];
+}
 const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104;
 /* HOGTIE — the pull-string's second verb, and the other half of the Toy Story mechanic.
    A stomp no longer deletes an enemy for half a second; it TIES it. A tied toy is inert,
@@ -438,7 +450,7 @@ const A2_FOES = [
   F("charger",4700,GY-34, 4520,4860),
   F("clip",   5300,GY-18, 5180,5860),
   F("candle", 5600,GY,    5600,5600),
-  F("charger",6600,GY-34, 6300,6860),
+  F("boss",   6600,GY-54, 6300,6860),   // the surge protector, before the box
 ];
 // -1500 against GRAV 2300 leaves a net 800 down: you fall, slowly, and you can steer it.
 // Enough to cross; not enough to hover, which would delete the act.
@@ -501,7 +513,7 @@ const A3_FOES = [
   F("charger", 4400,GY-34, 4060,4900),
   F("candle",  4600,GY,    4600,4600),
   F("knockoff",5600,GY-40, 5460,6140),
-  F("boss",    6950,GY-92, 6700,7350),   // the shelf boss, right before the box
+  F("boss",    6950,GY-100,6700,7350),  // the bootleg, still in its blister
 ];
 // the open window at the end of the shelf. A headwind, not a wall — 260 against ACC_AIR
 // 1900 is 14%, enough to feel the last swing get harder and not enough to stop it.
@@ -513,6 +525,7 @@ const ACTS = [
   {name:"THE DESK", fall:"Knocked off the desk", n:"ACT ONE", line:"Off the blister and across the desk. Mind the drop.",
    solids:A1_SOLIDS, anchors:A1_ANCHORS, coins:A1_COINS, foes:A1_FOES, zones:[],
    checkpoints:[40,1460,2300,3600,4660,5800], goal:{x:6520,y:GY-96,w:76,h:96}, end:6700,
+   boss:{art:["boss_punch0","boss_punch1"], box:[112,64]},
    theme:{ground:"wood", wall:"#E8DFCE", wallDark:"#D6CAB3", bg:.85, glow:"194,230,25",
           dust:"#FFF6DC", dustA:.14, tint:null, wind:"92,64,20",
           fg:[{k:"pen",   x:1600, w:420, h:44,  up:12, a:.34},
@@ -522,6 +535,7 @@ const ACTS = [
   {name:"THE CABLE RUN", fall:"Lost behind the monitor", n:"ACT TWO", line:"Behind the monitor. The bricks move and the fans blow.",
    solids:A2_SOLIDS, anchors:A2_ANCHORS, coins:A2_COINS, foes:A2_FOES, zones:A2_ZONES,
    checkpoints:[40,1460,2660,3940,5100,6200], goal:{x:6900,y:GY-96,w:76,h:96}, end:7100,
+   boss:{art:["boss_strip0","boss_strip1"], box:[150,54]},
    theme:{ground:"cable", wall:"#232A33", wallDark:"#12161C", bg:.16, glow:"90,200,255",
           dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)", wind:"120,215,255",
           fg:[{k:"cable", x:1500, w:520, h:22, up:96, a:.5},
@@ -531,6 +545,7 @@ const ACTS = [
   {name:"THE SHELF", fall:"Knocked off the shelf", n:"ACT THREE", line:"Up with the boxed figures. Nothing up here holds for long.",
    solids:A3_SOLIDS, anchors:A3_ANCHORS, coins:A3_COINS, foes:A3_FOES, zones:A3_ZONES,
    checkpoints:[40,1440,2640,3960,5340,6580], goal:{x:7420,y:GY-96,w:76,h:96}, end:7620,
+   boss:{art:["boss_bootleg0","boss_bootleg1"], box:[56,100]},
    theme:{ground:"shelf", wall:"#F6EFE0", wallDark:"#E4D3B2", bg:.58, glow:"255,214,120",
           dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)", wind:"96,68,24",
           fg:[{k:"lip",   x:-600, w:16000,h:22, up:8,  a:.22},
@@ -586,7 +601,9 @@ function loadImg(key, path){
 // NB: no "cable" — that sprite is a cord ending in a hanging loop, which at desk scale reads as
 // a noose. The anchors are drawn as plain hanging ropes instead. See drawAnchor.
 const PROPS = ["sticky","keycap","mug","pen","ruler","feather","front",
-               "teeth0","teeth1","clip","stapler","knockoff"];
+               "teeth0","teeth1","clip","stapler","knockoff",
+               "boss_punch0","boss_punch1","boss_strip0","boss_strip1",
+               "boss_bootleg0","boss_bootleg1"];
 const COIN_N = 8, COIN_H = 27;      // coin0 = face-on, coin7 = edge-on
 for(let i=0;i<COIN_N;i++) PROPS.push("coin"+i);
 // B3, the pack open sequence — not generated yet, the loader shrugs off the 404s and
@@ -1302,7 +1319,7 @@ function updateCamera(dt){
 
 /* ============================ DESK JUNK ============================ */
 function mkFoe(s){
-  const [w,h]=FOE_BOX[s.t];
+  const [w,h]=foeBox(s.t);
   return {t:s.t, x:s.x, y:s.t==="candle"?s.y:s.y, w, h:s.t==="candle"?0:h,
           full:h, base:s.y, a:s.a, b:s.b, dir:-1, anim:0, state:"idle", timer:0,
           phase:s.x*0.01, dead:0, hop:0, tied:0, tie:null,
@@ -1341,13 +1358,13 @@ function stepFoes(dt){
 
     } else if(f.t==="boss"){
       // hunts like a knockoff, faster with every hit landed on it, and stunned after each one
-      if(f.stun>0){ f.stun-=dt; f.anim+=dt*3; }
+      if(f.stun>0){ f.stun-=dt; f.anim+=dt*3; f.px=f.x; }
       else {
         const d=pc-(f.x+f.w/2);
         if(Math.abs(d)<HUNT_SEE*1.4 && G.mode==="play" && p.dead<=0){
           f.dir=Math.sign(d)||f.dir;
-          f.x += f.dir*(BOSS_SPEED+(BOSS_HP-f.hp)*34)*dt; f.anim+=dt*11;
-        } else f.anim+=dt*1.6;
+          f.px=f.x; f.x += f.dir*(BOSS_SPEED+(BOSS_HP-f.hp)*34)*dt; f.anim+=dt*11;
+        } else { f.anim+=dt*1.6; f.px=f.x; }
         f.x=clamp(f.x,f.a,f.b-f.w);
       }
       if(f.hit>0) f.hit-=dt;
@@ -1937,7 +1954,12 @@ function drawFoe(f){
    pips over its head: a HUD bar would be the only HUD element in the world layer, and at this
    scale three lime squares are legible from further away than a bar is. */
 function drawBoss(f){
-  const art=FOE_ART[f.t], im=useProps && art && IMGS[art[0]];
+  // frame 0 is at rest, frame 1 is the lunge. Picked by STATE, not by a running animation
+  // counter: a hole punch flapping its jaws on a timer reads as broken, and "it reared up
+  // because it is coming for you" is the whole tell.
+  const art=foeArt(f.t);
+  const lunge = f.stun<=0 && Math.abs(f.x-(f.px||f.x))>0.05;
+  const im=useProps && art && IMGS[art[(lunge && art.length>1)?1:0]];
   const flash = f.hit>0 && Math.floor(f.hit*22)%2===0;
   ctx.save();
   ctx.translate(f.x+f.w/2, f.y+f.h);
