@@ -345,12 +345,12 @@ const A1_FOES = [
   F("candle",5300,GY,     5300,5300),
   F("charger",6200,GY-34, 5920,6450),
 ];
-const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18], knockoff:[30,40]};
+const FOE_BOX  = {walker:[26,30], charger:[42,34], candle:[22,56], clip:[30,18], knockoff:[30,40], boss:[64,92]};
 // C2 landed 2026-08-05: real desk junk, no more flat silhouettes next to a photoreal hero.
 // Walkers chatter, the charger is a stapler. `clip` and `knockoff` were cut out by the same
 // build and sat unused for two days waiting for a reason — acts 2 and 3 are the reason.
 const FOE_ART  = {walker:["teeth0","teeth1"], charger:["stapler"],
-                  clip:["clip"], knockoff:["knockoff"]};
+                  clip:["clip"], knockoff:["knockoff"], boss:["knockoff"]};
 const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104;
 /* HOGTIE — the pull-string's second verb, and the other half of the Toy Story mechanic.
    A stomp no longer deletes an enemy for half a second; it TIES it. A tied toy is inert,
@@ -369,6 +369,17 @@ const FOE_WALK=62, FOE_CHARGE=252, CHARGE_SEE=320, STOMP_V=-520, CANDLE_RISE=104
 const TIE_TIME=5.5, TIE_WARN=1.3, TIE_JUMP=-940, TIE_H=16;
 const LIFE_EVERY=50;                 // coins per extra life
 const FOE_CLIP=150, FOE_HUNT=94, HUNT_SEE=460;
+/* THE BOSS — a knockoff figure at 2x, at the far end of the shelf. Three stomps.
+   Every enemy so far differs in MOVEMENT and is identical in INTERACTION: avoid it or stomp it
+   once. The boss is the first one where the fight has a shape — it speeds up each time you land
+   a hit, so the third stomp is meaningfully harder than the first. */
+const BOSS_HP=3, BOSS_SPEED=112, BOSS_STUN=1.15;
+/* AND THE CHARGE IS A TOOL, NOT JUST A THREAT (design review item 7). A charging stapler that
+   hits scenery smashes it: a red candle it slams into is GONE, and a card stack folds. So
+   standing in front of a hazard and stepping aside is a real option, which is the first time
+   an enemy has been useful rather than only dangerous. It stuns itself doing it — that is your
+   stomp window, and it is what stops bait-into-candle from being free. */
+const SMASH_STUN=1.0, CANDLE_BACK=6.0;
 
 /* ---------------- ACT 2 — THE CABLE RUN ---------------- */
 // He goes down the grommet hole and lands behind the monitor: no daylight, power bricks,
@@ -484,13 +495,17 @@ const A3_FOES = [
   F("candle",  2900,GY,    2900,2900),
   F("knockoff",3200,GY-40, 2760,3520),
   F("walker",  4300,GY-30, 4060,4900),
+  // the stapler and the candle share a stretch ON PURPOSE — this is where you learn that a
+  // charge you bait into scenery destroys the scenery, and stuns the thing that charged
+  F("charger", 4400,GY-34, 4060,4900),
   F("candle",  4600,GY,    4600,4600),
   F("knockoff",5600,GY-40, 5460,6140),
-  F("charger", 6900,GY-34, 6680,7300),
+  F("boss",    6950,GY-92, 6700,7350),   // the shelf boss, right before the box
 ];
 // the open window at the end of the shelf. A headwind, not a wall — 260 against ACC_AIR
 // 1900 is 14%, enough to feel the last swing get harder and not enough to stop it.
-const A3_ZONES = [ Z(6160,GY-280,380,280, -260,0) ];
+const A3_ZONES = [ Z(6160,GY-280,380,280, -260,0),
+                   Z(6620,GY-300,820,300, -230,0) ];   // and across the boss arena
 
 /* ---------------- the acts, and the live bindings ---------------- */
 const ACTS = [
@@ -498,7 +513,7 @@ const ACTS = [
    solids:A1_SOLIDS, anchors:A1_ANCHORS, coins:A1_COINS, foes:A1_FOES, zones:[],
    checkpoints:[40,1460,2300,3600,4660,5800], goal:{x:6520,y:GY-96,w:76,h:96}, end:6700,
    theme:{ground:"wood", wall:"#E8DFCE", wallDark:"#D6CAB3", bg:.85, glow:"194,230,25",
-          dust:"#FFF6DC", dustA:.14, tint:null,
+          dust:"#FFF6DC", dustA:.14, tint:null, wind:"92,64,20",
           fg:[{k:"pen",   x:1600, w:420, h:44,  up:12, a:.34},
               {k:"sticky",x:4600, w:230, h:180, up:66, a:.30},
               {k:"mugrim",x:8300, w:300, h:150, up:34, a:.28}]}},
@@ -507,7 +522,7 @@ const ACTS = [
    solids:A2_SOLIDS, anchors:A2_ANCHORS, coins:A2_COINS, foes:A2_FOES, zones:A2_ZONES,
    checkpoints:[40,1460,2660,3940,5100,6200], goal:{x:6900,y:GY-96,w:76,h:96}, end:7100,
    theme:{ground:"cable", wall:"#232A33", wallDark:"#12161C", bg:.16, glow:"90,200,255",
-          dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)",
+          dust:"#8FD0FF", dustA:.045, tint:"rgba(10,16,26,.52)", wind:"120,215,255",
           fg:[{k:"cable", x:1500, w:520, h:22, up:96, a:.5},
               {k:"cable", x:5200, w:430, h:18, up:70, a:.45},
               {k:"pen",   x:9200, w:400, h:38, up:10, a:.5}]}},
@@ -516,7 +531,7 @@ const ACTS = [
    solids:A3_SOLIDS, anchors:A3_ANCHORS, coins:A3_COINS, foes:A3_FOES, zones:A3_ZONES,
    checkpoints:[40,1440,2640,3960,5340,6580], goal:{x:7420,y:GY-96,w:76,h:96}, end:7620,
    theme:{ground:"shelf", wall:"#F6EFE0", wallDark:"#E4D3B2", bg:.58, glow:"255,214,120",
-          dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)",
+          dust:"#FFFFFF", dustA:.14, tint:"rgba(255,232,178,.14)", wind:"96,68,24",
           fg:[{k:"lip",   x:-600, w:16000,h:22, up:8,  a:.22},
               {k:"sticky",x:3200, w:210, h:160, up:58, a:.24},
               {k:"pen",   x:7600, w:420, h:42, up:16, a:.26}]}},
@@ -740,6 +755,8 @@ const SFX = {
   sproing(){ tone(300,1500,.16,"triangle",.09); tone(600,2100,.12,"square",.04,.03); },
   oneup(){ [0,.08,.16,.26].forEach((d,i)=>tone(660+i*220,880+i*260,.14,"square",.06,d)); },
   chain(n){ if(n>0) tone(700+n*180, 1100+n*220, .09, "square", .05); },
+  smash(){ noise(.24,.14,900); tone(180,60,.20,"sawtooth",.10); },
+  bosshit(left){ tone(260-left*30,80,.24,"sawtooth",.13); noise(.18,.10,500); },
   fan(){ noise(.3,.02,240); },
 };
 
@@ -1288,7 +1305,8 @@ function mkFoe(s){
   const [w,h]=FOE_BOX[s.t];
   return {t:s.t, x:s.x, y:s.t==="candle"?s.y:s.y, w, h:s.t==="candle"?0:h,
           full:h, base:s.y, a:s.a, b:s.b, dir:-1, anim:0, state:"idle", timer:0,
-          phase:s.x*0.01, dead:0, hop:0, tied:0, tie:null};
+          phase:s.x*0.01, dead:0, hop:0, tied:0, tie:null,
+          hp:(s.t==="boss"?BOSS_HP:0), stun:0, hit:0, out:0};
 }
 function stepFoes(dt){
   const p=G.p, pc=p.x+p.w/2;
@@ -1321,6 +1339,19 @@ function stepFoes(dt){
       else f.anim += dt*1.4;
       f.x = clamp(f.x, f.a, f.b-f.w);
 
+    } else if(f.t==="boss"){
+      // hunts like a knockoff, faster with every hit landed on it, and stunned after each one
+      if(f.stun>0){ f.stun-=dt; f.anim+=dt*3; }
+      else {
+        const d=pc-(f.x+f.w/2);
+        if(Math.abs(d)<HUNT_SEE*1.4 && G.mode==="play" && p.dead<=0){
+          f.dir=Math.sign(d)||f.dir;
+          f.x += f.dir*(BOSS_SPEED+(BOSS_HP-f.hp)*34)*dt; f.anim+=dt*11;
+        } else f.anim+=dt*1.6;
+        f.x=clamp(f.x,f.a,f.b-f.w);
+      }
+      if(f.hit>0) f.hit-=dt;
+
     } else if(f.t==="charger"){
       const d=pc-(f.x+f.w/2);
       // only wakes for a player on roughly its own level — it can't see you on a shelf
@@ -1329,14 +1360,19 @@ function stepFoes(dt){
         if(sees && G.mode==="play"){ f.state="tell"; f.timer=0.34; f.dir=Math.sign(d)||1; SFX.tell(); }
       } else if(f.state==="tell"){
         f.timer-=dt; if(f.timer<=0){ f.state="run"; f.timer=1.7; }
+      } else if(f.state==="stun"){
+        f.timer-=dt; f.anim+=dt*3;
+        if(f.timer<=0){ f.state="idle"; f.timer=0; }
       } else {
         f.timer-=dt; f.x += f.dir*FOE_CHARGE*dt; f.anim += dt*16;
-        if(f.x<f.a || f.x+f.w>f.b || f.timer<=0){
+        if(smashInto(f)){ f.state="stun"; f.timer=SMASH_STUN; f.x=clamp(f.x,f.a,f.b-f.w); }
+        else if(f.x<f.a || f.x+f.w>f.b || f.timer<=0){
           f.x=clamp(f.x,f.a,f.b-f.w); f.state="idle"; f.timer=0;
         }
       }
 
     } else {   // candle — bottom pinned to the desk, height is the animation
+      if(f.out>0){ f.out-=dt; f.h=0; f.y=f.base; if(f.out>0) continue; }
       f.phase += dt*1.35;
       const g=Math.max(0,Math.sin(f.phase));
       f.h = f.full*Math.min(1,g*1.35);
@@ -1350,6 +1386,20 @@ function stepFoes(dt){
     if(!hits(p,f)) continue;
     // "were you above it LAST frame", not "are you in its top 60% now" — at 2300 gravity a
     // fast fall clears a 30-unit body inside one frame and the depth test reads as a side hit
+    if(f.t==="boss" && p.vy>60 && (p.py+p.h) <= f.y+10){
+      if(f.hit>0) continue;                       // one hit per landing, not one per frame
+      f.hp--; f.hit=0.5; f.stun=BOSS_STUN;
+      p.vy=STOMP_V*1.15; p.airJumps=AIR_JUMPS; p.buffer=0;
+      G.hitstop=0.11; G.shk=18; G.flash=0.5;
+      burst(f.x+f.w/2,f.y,26,C.limeHot); SFX.stomp(); SFX.bosshit(f.hp);
+      if(f.hp<=0){
+        tieFoe(f);                                 // it goes down tied, like everything else
+        G.toast="KNOCKOFF DOWN"; G.toastT=2.0; G.flash=1; G.shk=24;
+        f.tied=1e9;                                // and it stays down
+        SFX.oneup();
+      }
+      continue;
+    }
     if(f.t!=="candle" && p.vy>60 && (p.py+p.h) <= f.y+10){
       tieFoe(f); p.vy=STOMP_V; p.airJumps=AIR_JUMPS; p.buffer=0;
       G.hitstop=0.06+Math.min(G.chain,4)*0.012; G.shk=10+Math.min(G.chain,4)*2;
@@ -1385,6 +1435,27 @@ function untieFoe(f){
   f.dir = (p.x+p.w/2) < (f.x+f.w/2) ? 1 : -1;   // it stumbles away, not straight into you
   burst(f.x+f.w/2, f.y+f.h, 8, C.paper); SFX.miss();
   rebuildWorld();
+}
+
+/* Did this charge just hit something breakable? Candles shatter, card stacks fold. Returns
+   true if it connected, which is what stuns the charger. */
+function smashInto(f){
+  let hit=false;
+  for(const o of G.foes){
+    if(o===f || o.t!=="candle" || o.out>0 || o.h<6) continue;
+    if(!hits(f,o)) continue;
+    o.out=CANDLE_BACK; o.h=0; o.phase=0;         // it comes back, so this can't strand anything
+    burst(o.x+o.w/2,o.base-20,18,C.candle); SFX.smash(); G.shk=13; G.hitstop=0.07;
+    hit=true;
+  }
+  for(const s of solids){
+    if(!s.cr || s.gone) continue;
+    if(!hits(f,s)) continue;
+    s.gone=true; s.reT=CR_BACK*1.6; s.crT=0;
+    burst(s.x+s.w/2,s.y+s.h,12,"#D9C7A6"); SFX.smash(); G.shk=11; G.hitstop=0.05;
+    hit=true;
+  }
+  return hit;
 }
 
 function burst(x,y,n,col){
@@ -1757,9 +1828,10 @@ function drawZone(z){
   // room — it read as a rendering bug in the first capture. Air has no edges.
   const zx=z.x+z.w/2, zy=z.y+z.h*(up?0.62:0.5), zr=Math.max(z.w,z.h)*0.62;
   const g=ctx.createRadialGradient(zx,zy,8,zx,zy,zr);
-  g.addColorStop(0,"rgba("+THEME.glow+",.15)"); g.addColorStop(1,"rgba("+THEME.glow+",0)");
+  const WC=THEME.wind||THEME.glow;
+  g.addColorStop(0,"rgba("+WC+",.15)"); g.addColorStop(1,"rgba("+WC+",0)");
   ctx.fillStyle=g; ctx.fillRect(z.x,z.y,z.w,z.h);
-  ctx.strokeStyle="rgba("+THEME.glow+",.40)"; ctx.lineWidth=2; ctx.lineCap="round";
+  ctx.strokeStyle="rgba("+WC+",.42)"; ctx.lineWidth=2; ctx.lineCap="round";
   const N=9, sp=(mag/1500)*260;
   // arrows fade out toward the zone's sides so the clip edge never draws a straight line
   const edge=(v,lo,hi)=>clamp(Math.min(v-lo,hi-v)/44,0,1);
@@ -1837,6 +1909,7 @@ function drawTied(f){
 function drawFoe(f){
   if(f.t==="candle"){ drawCandle(f); return; }
   if(f.tied>0){ drawTied(f); return; }
+  if(f.t==="boss"){ drawBoss(f); return; }
   const dead=f.dead>0, k=dead?clamp(f.dead/0.5,0,1):1;
   const art=FOE_ART[f.t], im=useProps && art && (IMGS[art[art.length>1?((f.anim|0)%2):0]]);
   ctx.save();
@@ -1856,6 +1929,36 @@ function drawFoe(f){
   if(!dead && f.state==="tell"){
     ctx.globalAlpha=.5+Math.sin(G.t*30)*.3; ctx.fillStyle=C.candle;
     ctx.fillRect(f.x+f.w/2-2,f.y-16,4,9); ctx.globalAlpha=1;
+  }
+}
+
+/* The boss. Same knockoff sprite the act is already full of, at 2x — so it reads instantly as
+   "that thing, but the big one" rather than as a new character nobody has met. Its health is
+   pips over its head: a HUD bar would be the only HUD element in the world layer, and at this
+   scale three lime squares are legible from further away than a bar is. */
+function drawBoss(f){
+  const art=FOE_ART[f.t], im=useProps && art && IMGS[art[0]];
+  const flash = f.hit>0 && Math.floor(f.hit*22)%2===0;
+  ctx.save();
+  ctx.translate(f.x+f.w/2, f.y+f.h);
+  ctx.fillStyle="rgba(11,11,13,.26)";
+  ctx.beginPath(); ctx.ellipse(0,0,f.w*.52,7,0,0,6.3); ctx.fill();
+  if(f.stun>0) ctx.rotate(Math.sin(G.t*26)*0.06);
+  if(f.dir>0) ctx.scale(-1,1);                      // every sheet is drawn facing left
+  if(im){
+    const sc=f.h*1.1/im.naturalHeight;
+    ctx.drawImage(im,-im.naturalWidth*sc/2,-im.naturalHeight*sc,im.naturalWidth*sc,im.naturalHeight*sc);
+  } else { ctx.fillStyle=C.void; rr(-f.w/2,-f.h,f.w,f.h,6); }
+  if(flash){ ctx.globalAlpha=.55; ctx.fillStyle=C.paper; rr(-f.w/2,-f.h,f.w,f.h,6); ctx.globalAlpha=1; }
+  ctx.restore();
+  const px=f.x+f.w/2-(BOSS_HP*13-4)/2, py=f.y-16;
+  for(let i=0;i<BOSS_HP;i++){
+    ctx.fillStyle = i<f.hp ? C.limeHot : "rgba(11,11,13,.30)";
+    ctx.fillRect(px+i*13, py, 9, 6);
+  }
+  if(f.stun>0){                                     // the stomp window, said out loud
+    ctx.globalAlpha=.4+Math.abs(Math.sin(G.t*18))*.5; ctx.strokeStyle=C.limeHot; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(f.x+f.w/2, f.y-30, 7, 0, 6.3); ctx.stroke(); ctx.globalAlpha=1;
   }
 }
 
