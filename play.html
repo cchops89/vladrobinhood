@@ -24,8 +24,9 @@ canvas{display:block;position:absolute;inset:0}
   box-shadow:0 3px 0 rgba(0,0,0,.25)}
 .hl{background:linear-gradient(transparent 52%,var(--lime-hot) 52%,var(--lime-hot) 94%,transparent 94%);padding:0 2px}
 .kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.55;font-weight:700}
-/* the feather, as an element. assets/sprites/feather.png is alpha-keyed off the supplied
-   lime square, so it drops onto any surface without a halo. */
+/* `.fea` was the inline house-mark stamp on every kicker and BUY chip. The mark was the
+   brokerage's trademark and every instance came out 2026-08-09; the rules stay because
+   #brandmark and any future inline glyph want the same sizing. */
 .fea{height:1em;width:auto;vertical-align:-.14em;opacity:.85}
 .kicker .fea{height:1.15em;margin-right:5px;vertical-align:-.22em}
 #brandmark{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);
@@ -153,11 +154,11 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
   </div>
   <div id="mcapwrap">
     <div class="paper">
-      <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">$VLAD market cap</div>
+      <div class="kicker">$VLAD market cap</div>
       <div id="mcap">loading…</div>
     </div>
   </div>
-  <img id="brandmark" src="assets/sprites/feather.png" alt="">
+  <img id="brandmark" src="assets/sprites/favicon.png" alt="">
   <div id="lives"></div>
   <div id="actbar">ACT <b>1</b>/3 · THE DESK</div>
   <div id="pad">
@@ -170,7 +171,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
 
 <div class="screen on" id="startScreen">
   <div class="card paper">
-    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">Collector Series · Unofficial Fan Game</div>
+    <div class="kicker">Collector Series · Unofficial Fan Game</div>
     <div style="font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:6px">VLAD:<br><span class="hl">UNBOXED</span></div>
     <div class="body">
       Six and a half inches of collectible plastic, sealed on his desk. Kick the blister open —
@@ -201,7 +202,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
 
 <div class="screen" id="overScreen">
   <div class="card paper">
-    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt=""><span id="overKick">Knocked off the desk</span></div>
+    <div class="kicker"><span id="overKick">Knocked off the desk</span></div>
     <div id="overTitle" style="font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1;margin-top:5px">OUT OF LIVES</div>
     <div class="quote" id="vladLine" style="font-size:15px;font-weight:700;font-style:italic;line-height:1.35;margin-top:10px">“They keep underestimating us, Vlad.”</div>
     <div class="byline" style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;opacity:.5;margin-top:7px;font-weight:700">— Vlad Tenev, to his action figure</div>
@@ -221,7 +222,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
   <a id="buy" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood"
      target="_blank" rel="noopener">
     <span class="ca">0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</span>
-    <span class="chip"><img class="fea" src="assets/sprites/feather.png" alt="">BUY</span>
+    <span class="chip">BUY</span>
   </a>
 </div>
 
@@ -614,7 +615,7 @@ function loadImg(key, path){
 }
 // NB: no "cable" — that sprite is a cord ending in a hanging loop, which at desk scale reads as
 // a noose. The anchors are drawn as plain hanging ropes instead. See drawAnchor.
-const PROPS = ["sticky","keycap","mug","pen","ruler","feather","front",
+const PROPS = ["sticky","keycap","mug","pen","ruler","front",
                "teeth0","teeth1","clip","stapler","knockoff",
                "boss_punch0","boss_punch1","boss_strip0","boss_strip1",
                "boss_bootleg0","boss_bootleg1"];
@@ -652,19 +653,9 @@ function pickFrame(p){
   return ((G.t*2)|0)%2 ? "idle1" : "idle0";
 }
 
-/* The house mark. One helper so the feather lands the same way everywhere it's stamped —
-   sized by HEIGHT, anchored top-left, aspect preserved. */
-// NB: no tint option on purpose. Tinting an image on canvas needs an offscreen buffer —
-// `source-atop` would repaint every opaque pixel already on the frame, not just the feather.
-// The mark is dark on lime by design anyway, and every surface it lands on here is light.
-function feather(x,y,h,alpha){
-  const im=IMGS.feather; if(!im) return 0;
-  const w=h*(im.naturalWidth/im.naturalHeight);
-  if(alpha!=null) ctx.globalAlpha=alpha;
-  ctx.drawImage(im,x,y,w,h);
-  ctx.globalAlpha=1;
-  return w;
-}
+/* The `feather()` stamp helper lived here. Both its call sites — the office wall and the pack's
+   top-left corner — drew the brokerage's trademark, and both were cut 2026-08-09 while clearing
+   the Safe Browsing listing. The asset moved to assets/_retired/ so deploy.sh stops shipping it. */
 
 /* ============================ THE PACK ============================ */
 // B2's art is a SEALED pack with a figure-shaped cavity, so the figure composites straight
@@ -689,7 +680,15 @@ function drawPack(cx, bottom, h, open, withFigure){
     const fh = h*PACK.figH, fw = fh*(fig.naturalWidth/fig.naturalHeight);
     ctx.drawImage(fig, x+w*PACK.cx-fw/2, y+h*PACK.footY-fh, fw, fh);
   }
-  feather(x+w*0.09, y+h*0.045, h*0.09, .82);   // the blank top-left corner B3 was asked to leave
+  /* The blank top-left corner B3 was asked to leave. It held the brokerage's mark until
+     2026-08-09; a wordmark says the same thing about whose packaging this is without being
+     someone else's trademark. Sized off the pack so it tracks every scale drawPack is called at. */
+  ctx.save();
+  ctx.fillStyle="rgba(11,11,13,.82)";
+  ctx.font="900 "+(h*0.075).toFixed(1)+"px -apple-system,Arial";
+  ctx.textBaseline="top";
+  ctx.fillText("$VLAD", x+w*0.09, y+h*0.045);
+  ctx.restore();
 
   if(seq.length===PACK_FRAMES.length) return;
   // placeholder: the clear blister splits down the middle and swings off the card
@@ -1668,13 +1667,10 @@ function drawBackground(){
     ctx.beginPath(); ctx.arc(x,y,34+(i%3)*14,0,6.3); ctx.fill();
   }
   ctx.globalAlpha=1;
-  // house mark on the office wall, deepest parallax layer — furniture, not decoration
-  if(IMGS.feather){
-    const fh=VH*0.62, fw=fh*(IMGS.feather.naturalWidth/IMGS.feather.naturalHeight);
-    let fx=(-G.cam.x*0.05)%(VW+fw*3.2); if(fx>0) fx-=VW+fw*3.2;
-    for(let x=fx; x<VW+fw; x+=VW+fw*3.2)
-      feather(x, VH*0.10-G.cam.y*0.04, fh, .055);
-  }
+  /* The wall used to carry a room-height house mark on this layer. It was the brokerage's actual
+     trademark, drawn at VH*0.62 across the deepest parallax — the single largest instance of it
+     anywhere in the project. Cut 2026-08-09 while clearing the Safe Browsing listing. The wall
+     keeps its glow and its grid; it does not need a logo on it. Don't put one back. */
   const mx=-G.cam.x*0.2+340, my=-G.cam.y*0.16+150;
   const rg=ctx.createRadialGradient(mx,my,10,mx,my,260);
   rg.addColorStop(0,"rgba("+THEME.glow+",.20)"); rg.addColorStop(1,"rgba("+THEME.glow+",0)");
@@ -2058,7 +2054,7 @@ function drawCoin(c){
     rg.addColorStop(0,"rgba(214,243,47,.30)"); rg.addColorStop(1,"rgba(214,243,47,0)");
     ctx.fillStyle=rg; ctx.fillRect(-COIN_H,-COIN_H,COIN_H*2,COIN_H*2);
     // the narrowing is IN the frames — never squash on top of it or the coin spins twice
-    if(spin<0) ctx.scale(-1,1);          // back face: the feather flips, selling the rotation
+    if(spin<0) ctx.scale(-1,1);          // back face: the portrait flips, selling the rotation
     const iw=COIN_H*(im.naturalWidth/im.naturalHeight);
     ctx.drawImage(im,-iw/2,-COIN_H/2,iw,COIN_H);
   } else {
