@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>VLAD: UNBOXED</title>
+<title>VLAD: UNBOXED · Unofficial Fan Game</title>
+<!-- Deployed to /play and reachable standalone, NOT only inside the site's iframe — so it needs
+     its own disclaimer and its own head tags. It had neither until 2026-08-09. -->
+<meta name="description" content="A free unofficial fan platformer. Not affiliated with any brokerage or its founders.">
+<meta name="robots" content="index,follow">
+<!-- /play had no favicon at all, so it inherited nothing and showed a blank tab. Same icon as the
+     site, and deliberately not the feather — see UNBOXED-REFERENCE.md. -->
+<link rel="icon" href="assets/sprites/favicon.png">
+<link rel="apple-touch-icon" href="assets/sprites/favicon.png">
 <style>
 :root{ --lime:#C2E619; --lime-hot:#D6F32F; --void:#0B0B0D; --paper:#F2F0EC; }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -127,6 +135,10 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
 .actchip.lock{opacity:.3;cursor:default}
 .picknote{font-size:9px;font-weight:700;letter-spacing:.06em;opacity:.5;margin-top:7px;line-height:1.4}
 #ca{font-size:8.5px;word-break:break-all;opacity:.4;margin-top:10px;font-weight:600}
+/* The game is served standalone at /play — a crawler that lands there sees this card and nothing
+   else, so the fan-project claim has to be ON it, not only on the site that embeds it. */
+.fanDisc{font-size:8.5px;line-height:1.45;opacity:.55;margin-top:8px;font-weight:600;
+  border-top:1px solid rgba(11,11,13,.14);padding-top:8px}
 </style>
 </head>
 <body>
@@ -158,7 +170,7 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
 
 <div class="screen on" id="startScreen">
   <div class="card paper">
-    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">Robinhood Chain · Collector Series</div>
+    <div class="kicker"><img class="fea" src="assets/sprites/feather.png" alt="">Collector Series · Unofficial Fan Game</div>
     <div style="font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:6px">VLAD:<br><span class="hl">UNBOXED</span></div>
     <div class="body">
       Six and a half inches of collectible plastic, sealed on his desk. Kick the blister open —
@@ -173,6 +185,8 @@ button:active{transform:scale(.92);background:rgba(11,11,13,.92)}
     <button class="btn" id="startBtn">CLIMB OUT</button>
     <div class="keys">← → move · SPACE / ↑ jump (×2) · R respawn · M mute</div>
     <div id="ca">CA 0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5</div>
+    <div class="fanDisc">Unofficial parody fan game · not affiliated with, endorsed by, or
+      connected to any brokerage or its founders · not an investment</div>
   </div>
 </div>
 

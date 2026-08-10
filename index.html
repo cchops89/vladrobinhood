@@ -3,13 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>$VLAD — UNBOXED</title>
-<meta name="description" content="$VLAD on Robinhood Chain. Six and a half inches of collectible plastic. Play VLAD: UNBOXED.">
-<meta property="og:title" content="$VLAD — UNBOXED">
-<meta property="og:description" content="They keep underestimating us, Vlad. Robinhood Chain · Collector Series.">
-<meta property="og:image" content="assets/vladrobinhood_banner.jpeg">
+<title>$VLAD — UNBOXED · Unofficial Fan Project</title>
+<!-- Head tags get scraped standalone, with no disclaimer strip anywhere near them, so they carry
+     their own. Brand names deliberately stay OUT of title/description/og — see 2026-08-09. -->
+<meta name="description" content="An unofficial fan memecoin and a free browser platformer. Six and a half inches of collectible plastic. Not affiliated with any brokerage.">
+<meta property="og:title" content="$VLAD — UNBOXED · Unofficial Fan Project">
+<meta property="og:description" content="They keep underestimating us, Vlad. Collector Series — a parody memecoin and a game, not an investment.">
+<meta property="og:image" content="https://vladrobinhood.com/assets/og-banner.jpeg">
+<!-- Absolute, not relative: most social scrapers drop a relative og:image outright. Also gives the
+     page a declared canonical identity, which is a legitimacy signal at review time. -->
+<link rel="canonical" href="https://vladrobinhood.com/">
+<meta property="og:url" content="https://vladrobinhood.com/">
+<meta property="og:type" content="website">
+<meta name="robots" content="index,follow">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="assets/sprites/feather.png">
+<!-- NOT the feather. The feather is the brokerage's actual mark, and a favicon is the highest-
+     exposure "am I on the real site" surface there is — it renders in the tab and next to the
+     search result. Swapped to the figure's face 2026-08-09, see the Safe Browsing section in
+     UNBOXED-REFERENCE.md. Don't put the feather back here. -->
+<link rel="icon" href="assets/sprites/favicon.png">
+<link rel="apple-touch-icon" href="assets/sprites/favicon.png">
 <style>
 :root{
   --lime:#C2E619; --lime-hot:#D6F32F; --void:#0B0B0D; --paper:#F2F0EC;
@@ -99,6 +112,10 @@ nav .links a:hover{opacity:1;color:var(--lime-hot)}
 .title{font-size:clamp(84px,17vw,210px);font-weight:900;letter-spacing:-.06em;line-height:.84;
   margin:10px 0 0;color:var(--lime-hot)}
 .tag{margin-top:20px;font-size:clamp(15px,1.8vw,19px);line-height:1.5;color:var(--dim);max-width:38ch}
+/* Legible, not shouty — grey 30% footer text is what got read as "buried" in the first place. */
+.heroDisc{margin-top:12px;font-size:12.5px;line-height:1.45;max-width:46ch;
+  color:rgba(242,240,236,.62);font-weight:500}
+.heroDisc b{color:rgba(242,240,236,.9);font-weight:800}
 .tag b{color:var(--paper)}
 .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
 .ghost{border:2px solid rgba(242,240,236,.28);color:var(--paper);text-decoration:none;font-weight:900;
@@ -395,9 +412,14 @@ footer .sp{margin-left:auto}
   <span id="top"></span>
   <div class="wrap herogrid">
     <div>
-      <div class="eyebrow">Robinhood Chain · Collector Series</div>
+      <div class="eyebrow">Collector Series · Unofficial Fan Project</div>
       <h1 class="title">$VLAD</h1>
       <p class="tag">Six and a half inches of collectible plastic, sealed on the CEO's desk.</p>
+      <!-- Second disclaimer, at the H1. The top strip scrolls out of a screenshot and a crawler
+           reads this section on its own — the fan-project claim has to live next to the CTA. -->
+      <p class="tag heroDisc">A parody memecoin and a free browser game. <b>Not affiliated with,
+        endorsed by, or connected to any brokerage or its founders.</b> Nothing here is an
+        investment or financial advice.</p>
       <div class="ctas">
         <a class="buybtn" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood" target="_blank" rel="noopener">
           <img class="fea" src="assets/sprites/feather.png" alt="">BUY $VLAD
@@ -479,8 +501,8 @@ footer .sp{margin-left:auto}
 
     <div class="collage">
       <div class="c-shot rv">
-        <img class="shot" src="assets/vladwithactionfigure.jpeg" alt="Vlad Tenev at his desk with the action figure" loading="lazy">
-        <div class="cap">Source footage · Robinhood, TikTok</div>
+        <img class="shot" src="assets/collector-desk.jpeg" alt="The collector figure on a desk" loading="lazy">
+        <div class="cap">Source footage · publicly posted video</div>
       </div>
 
       <div class="c-quote rv">
@@ -492,12 +514,12 @@ footer .sp{margin-left:auto}
       </div>
 
       <div class="c-money rv">
-        <img class="shot" src="assets/vladholdingmoney.jpeg" alt="The action figure holding a stack of cash" loading="lazy">
+        <img class="shot" src="assets/collector-cash.jpeg" alt="The collector figure holding a stack of cash" loading="lazy">
         <div class="cap">The figure · 6.5 inches, fully articulated, holds a brick</div>
       </div>
 
       <div class="rv" style="grid-column:span 12">
-        <img class="shot" src="assets/vladrobinhood_banner.jpeg" alt="$VLAD lore banner" loading="lazy">
+        <img class="shot" src="assets/og-banner.jpeg" alt="$VLAD lore banner" loading="lazy">
       </div>
     </div>
   </div>
@@ -680,31 +702,25 @@ The final result must be immediately recognizable as the person from @[Image 1](
   <div class="wrap">
     <div class="rv">
       <div class="eyebrow">How to buy</div>
-      <h2 class="big">THREE <span class="hl">STEPS.</span></h2>
+      <h2 class="big">TWO <span class="hl">THINGS.</span></h2>
     </div>
 
+    <!-- This was a numbered install-wallet → fund-it → send-it walkthrough. Read as plain text by
+         a Safe Browsing classifier, with the brand in the domain, that sequence is indistinguishable
+         from a drainer script — and it took the site down on 2026-08-09. It does not come back.
+         No wallet-install instructions, no recovery-phrase copy, no app store links. -->
     <div class="steps rv">
       <div class="paper torn step tilt-l">
-        <div class="num">01</div>
-        <h4>Download Robinhood Wallet</h4>
-        <p>The self-custody one — <b>“Robinhood Wallet: Swap Crypto”</b> on the
-          <a href="https://apps.apple.com/us/app/robinhood-wallet-swap-crypto/id1634080733" target="_blank" rel="noopener">App Store</a> or
-          <a href="https://play.google.com/store/apps/details?id=com.robinhood.gateway" target="_blank" rel="noopener">Google Play</a>.
-          Robinhood Chain is built in. Write your recovery phrase down on paper.</p>
-      </div>
-      <div class="paper torn step">
-        <div class="num">02</div>
-        <h4>Fund it with ETH</h4>
-        <p>You need ETH <i>on Robinhood Chain</i> — it's the gas token and what you'll swap from.
-          Buy in-app through Robinhood Connect, send from your Robinhood Crypto account, or bridge
-          it over.</p>
+        <h4>A wallet, and gas</h4>
+        <p>Any self-custody wallet that supports the chain $VLAD lives on, holding a little ETH
+          for gas. If you already trade onchain you already have this — set it up however you
+          normally would, from your wallet's own documentation.</p>
       </div>
       <div class="paper torn step tilt-r">
-        <div class="num">03</div>
-        <h4>Home → Swap → paste the CA</h4>
-        <p>Pick <b>Robinhood Chain</b> on both sides. Put the $VLAD contract in the
-          <i>To</i> field — check it against the lime bar up top, never search by name. Review the
-          quote, swipe to swap.</p>
+        <h4>The contract, checked</h4>
+        <p>Always paste the $VLAD contract address and verify it against the lime bar at the top
+          of this page. <b>Never search by name</b> — anyone can mint a token called $VLAD, and
+          copycats are how people get taken.</p>
       </div>
     </div>
 
@@ -714,8 +730,8 @@ The final result must be immediately recognizable as the person from @[Image 1](
       </a>
     </div>
     <p class="note rv">
-      Not seeing $VLAD in the app's swap list yet? The button above is the same trade on Uniswap,
-      which runs natively on Robinhood Chain — connect any wallet and it routes the same way.
+      The button above opens the $VLAD pair on Uniswap, which runs natively on the chain — connect
+      any wallet that supports it and the trade routes the same way.
     </p>
   </div>
 </section>
@@ -733,6 +749,14 @@ The final result must be immediately recognizable as the person from @[Image 1](
     $VLAD is an unofficial community memecoin and a fan game. Not affiliated with, endorsed by, or
     connected to Robinhood Markets, Inc. or Vlad Tenev. No utility, no roadmap, no promises — buy
     it because it's funny, not because it's an investment.
+    <!-- Named operator + a reachable channel. "Who runs this site" is a legitimacy signal a
+         reviewer looks for, and its absence reads as an anonymous crypto page. -->
+    This site is an independent parody project run by
+    <a href="https://x.com/thejpegjunkie" target="_blank" rel="noopener">@thejpegjunkie</a>, who is
+    not affiliated with any brokerage. It does not collect personal information, does not ask for
+    wallet credentials or recovery phrases, and will never request them. Questions or takedown
+    requests: <a href="https://x.com/VladRobinhood" target="_blank" rel="noopener">@VladRobinhood</a>
+    or the <a href="https://t.me/vladrobinhoodxyz" target="_blank" rel="noopener">Telegram</a>.
   </div>
 </footer>
 
