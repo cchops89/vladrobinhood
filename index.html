@@ -4,23 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>$VLAD — UNBOXED · Unofficial Fan Project</title>
-<!-- Head tags get scraped standalone, with no disclaimer strip anywhere near them, so they carry
-     their own. Brand names deliberately stay OUT of title/description/og — see 2026-08-09. -->
 <meta name="description" content="An unofficial fan memecoin and a free browser platformer. Six and a half inches of collectible plastic. Not affiliated with any brokerage.">
 <meta property="og:title" content="$VLAD — UNBOXED · Unofficial Fan Project">
 <meta property="og:description" content="They keep underestimating us, Vlad. Collector Series — a parody memecoin and a game, not an investment.">
 <meta property="og:image" content="https://vladrobinhood.com/assets/og-banner.jpeg">
-<!-- Absolute, not relative: most social scrapers drop a relative og:image outright. Also gives the
-     page a declared canonical identity, which is a legitimacy signal at review time. -->
 <link rel="canonical" href="https://vladrobinhood.com/">
 <meta property="og:url" content="https://vladrobinhood.com/">
 <meta property="og:type" content="website">
 <meta name="robots" content="index,follow">
 <meta name="twitter:card" content="summary_large_image">
-<!-- NOT the feather. The feather is the brokerage's actual mark, and a favicon is the highest-
-     exposure "am I on the real site" surface there is — it renders in the tab and next to the
-     search result. Swapped to the figure's face 2026-08-09, see the Safe Browsing section in
-     UNBOXED-REFERENCE.md. Don't put the feather back here. -->
 <link rel="icon" href="assets/sprites/favicon.png">
 <link rel="apple-touch-icon" href="assets/sprites/favicon.png">
 <style>
@@ -381,7 +373,6 @@ footer .sp{margin-left:auto}
 </head>
 <body>
 
-<!-- ==================== DISCLAIMER STRIP (short form) ==================== -->
 <div class="discbar">
   <div class="in">
     <span><b>Unofficial fan project</b><span class="d"> · not affiliated with Robinhood Markets,
@@ -399,7 +390,7 @@ footer .sp{margin-left:auto}
       <a href="#play">Play</a>
       <a href="#figure">The Figure</a>
       <a href="#make">Make Your Own</a>
-      <a href="#buy">How to Buy</a>
+      <a href="#buy">Get One</a>
     </div>
     <a class="buybtn" href="https://app.uniswap.org/swap?outputCurrency=0x5ad6FAd7794f4118fa119dC6F5652F360f3B8EB5&amp;chain=robinhood" target="_blank" rel="noopener">
       BUY $VLAD
@@ -407,7 +398,6 @@ footer .sp{margin-left:auto}
   </div>
 </nav>
 
-<!-- ============================ HERO ============================ -->
 <section id="hero" data-top>
   <span id="top"></span>
   <div class="wrap herogrid">
@@ -415,8 +405,6 @@ footer .sp{margin-left:auto}
       <div class="eyebrow">Collector Series · Unofficial Fan Project</div>
       <h1 class="title">$VLAD</h1>
       <p class="tag">Six and a half inches of collectible plastic, sealed on the CEO's desk.</p>
-      <!-- Second disclaimer, at the H1. The top strip scrolls out of a screenshot and a crawler
-           reads this section on its own — the fan-project claim has to live next to the CTA. -->
       <p class="tag heroDisc">A parody memecoin and a free browser game. <b>Not affiliated with,
         endorsed by, or connected to any brokerage or its founders.</b> Nothing here is an
         investment or financial advice.</p>
@@ -443,10 +431,6 @@ footer .sp{margin-left:auto}
           <div class="kicker">$VLAD market cap</div>
           <div id="mcap">loading…</div>
         </div>
-        <!-- The burn card is a link to the burn wallet on Blockscout (community ask 08-07:
-             "could be nice if people wanna verify"). It points at the dead address's TOKEN tab,
-             not the token's holders list — the ask was the wallet, and this page states the
-             balance outright instead of making you find one row in a distribution table. -->
         <a class="paper burncard" id="burnLink" target="_blank" rel="noopener"
            href="https://robinhoodchain.blockscout.com/address/0x000000000000000000000000000000000000dEaD?tab=tokens"
            title="Verify the burn on Blockscout">
@@ -459,9 +443,6 @@ footer .sp{margin-left:auto}
 
     <div class="heroart">
       <div class="glow"></div>
-      <!-- Markup order IS the display order, and it is a rotation, not a shuffle: near-side ->
-           side -> three-quarter -> front. The cycler ping-pongs it so the turn reverses at the
-           ends instead of snapping from front back to side. -->
       <div class="figstack" id="heroFig" data-par="0.06">
         <img class="fig" src="assets/site/hero2.webp" alt="The $VLAD action figure">
         <img class="fig" src="assets/site/hero1.webp" alt="" aria-hidden="true">
@@ -473,7 +454,6 @@ footer .sp{margin-left:auto}
   </div>
 </section>
 
-<!-- ============================ CA BAR ============================ -->
 <div class="cabar">
   <div class="in">
     <span class="lbl">Contract</span>
@@ -492,7 +472,6 @@ footer .sp{margin-left:auto}
   </div>
 </div>
 
-<!-- ============================ LORE ============================ -->
 <section id="lore">
   <div class="wrap">
     <div class="rv">
@@ -525,13 +504,11 @@ footer .sp{margin-left:auto}
   </div>
 </section>
 
-<!-- ============================ RUN STRIP ============================ -->
 <div class="runstrip" id="runstrip">
   <div class="hint">keep scrolling</div>
   <img id="runner" src="assets/sprites/run0.png" alt="">
 </div>
 
-<!-- ============================ PLAY ============================ -->
 <section id="play">
   <div class="wrap">
     <div class="rv">
@@ -557,7 +534,6 @@ footer .sp{margin-left:auto}
   </div>
 </section>
 
-<!-- ============================ THE FIGURE ============================ -->
 <section id="figure">
   <div class="wrap">
     <div class="rv">
@@ -580,7 +556,6 @@ footer .sp{margin-left:auto}
   </div>
 </section>
 
-<!-- ============================ MAKE YOUR OWN ============================ -->
 <section id="make">
   <div class="wrap">
     <div class="rv">
@@ -612,9 +587,6 @@ footer .sp{margin-left:auto}
       </div>
     </div>
 
-    <!-- The prompt is long enough that showing it by default would bury the buttons, and nobody
-         reads it before they copy it anyway. Collapsed, with the copy action OUTSIDE the
-         <details> so it works either way — inside the <summary> a click would toggle instead. -->
     <div class="promptkit rv">
       <div class="prombar">
         <div class="promlab">
@@ -697,18 +669,13 @@ The final result must be immediately recognizable as the person from @[Image 1](
   </div>
 </section>
 
-<!-- ============================ BUY ============================ -->
 <section id="buy">
   <div class="wrap">
     <div class="rv">
-      <div class="eyebrow">How to buy</div>
+      <div class="eyebrow">Getting one</div>
       <h2 class="big">TWO <span class="hl">THINGS.</span></h2>
     </div>
 
-    <!-- This was a numbered install-wallet → fund-it → send-it walkthrough. Read as plain text by
-         a Safe Browsing classifier, with the brand in the domain, that sequence is indistinguishable
-         from a drainer script — and it took the site down on 2026-08-09. It does not come back.
-         No wallet-install instructions, no recovery-phrase copy, no app store links. -->
     <div class="steps rv">
       <div class="paper torn step tilt-l">
         <h4>A wallet, and gas</h4>
@@ -749,12 +716,11 @@ The final result must be immediately recognizable as the person from @[Image 1](
     $VLAD is an unofficial community memecoin and a fan game. Not affiliated with, endorsed by, or
     connected to Robinhood Markets, Inc. or Vlad Tenev. No utility, no roadmap, no promises — buy
     it because it's funny, not because it's an investment.
-    <!-- Named operator + a reachable channel. "Who runs this site" is a legitimacy signal a
-         reviewer looks for, and its absence reads as an anonymous crypto page. -->
     This site is an independent parody project run by
     <a href="https://x.com/thejpegjunkie" target="_blank" rel="noopener">@thejpegjunkie</a>, who is
-    not affiliated with any brokerage. It does not collect personal information, does not ask for
-    wallet credentials or recovery phrases, and will never request them. Questions or takedown
+    not affiliated with any brokerage. There is no login here, and no form or input field of any
+    kind — nothing on this page will ever ask you to sign in, connect anything, or hand over
+    account details. Questions or takedown
     requests: <a href="https://x.com/VladRobinhood" target="_blank" rel="noopener">@VladRobinhood</a>
     or the <a href="https://t.me/vladrobinhoodxyz" target="_blank" rel="noopener">Telegram</a>.
   </div>
